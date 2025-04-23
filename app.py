@@ -2,26 +2,29 @@ import streamlit as st
 from PIL import Image
 import time
 
-st.title("📁 File Uploader Demo")
+# App title
+st.title("Streamlit Demo on Hugging Face")
 
-st.write("Upload an image or audio file, and we'll display or play it for you!")
+# Write some text
+st.write("Welcome to a demo app showcasing basic Streamlit components!")
 
-uploaded_file = st.file_uploader("Choose an image or audio file", type=["png", "jpg", "jpeg", "mp3", "wav"])
+# File uploader for image and audio
+uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+uploaded_audio = st.file_uploader("Upload an audio file", type=["mp3", "wav", "ogg"])
 
-if uploaded_file is not None:
-    file_type = uploaded_file.type
+# Display image with spinner
+if uploaded_image is not None:
+    with st.spinner("Loading image..."):
+        time.sleep(1)  # Simulate a delay
+        image = Image.open(uploaded_image)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    with st.spinner("Processing..."):
-        time.sleep(2)  # simulate processing time
+# Play audio with spinner
+if uploaded_audio is not None:
+    with st.spinner("Loading audio..."):
+        time.sleep(1)  # Simulate a delay
+        st.audio(uploaded_audio)
 
-    if "image" in file_type:
-        st.write("### Uploaded Image:")
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Your image", use_column_width=True)
-
-    elif "audio" in file_type:
-        st.write("### Uploaded Audio:")
-        st.audio(uploaded_file, format=file_type)
-
-    else:
-        st.write("Unsupported file type.")
+# Button interaction
+if st.button("Click Me"):
+    st.write("🎉 You clicked the button!")
