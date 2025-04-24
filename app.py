@@ -2,6 +2,7 @@
 import streamlit as st
 from PIL import Image
 import time
+from transformers import pipeline
 
 # function part
 def generate_image_caption(image_path):
