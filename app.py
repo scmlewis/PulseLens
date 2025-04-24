@@ -37,7 +37,7 @@ if uploaded_image is not None:
         image = Image.open(uploaded_image)
         st.image(image, caption="Uploaded Image", use_column_width=True)
         caption = generate_image_caption(uploaded_image)
-        st.write((f"Generated Caption: {caption}")
+        st.write("Generated Caption: {caption}")
 
 
 
