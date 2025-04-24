@@ -29,7 +29,7 @@ def main():
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
     if uploaded_image is not None:
-        image = Image.open(uploaded_file).convert("RGB")
+        image = Image.open(uploaded_image).convert("RGB")
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
         # Stage 1: Image to Text
