@@ -1,47 +1,41 @@
 # import part
 import streamlit as st
-from PIL import Image
-import time
 from transformers import pipeline
 
-# Load models (once globally)
-img2caption = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
-story_gen = pipeline("text-generation", model="pranavpsv/genre-story-generator-v2")
-
 # function part
-def generate_image_caption(image):
-    """Generates a caption for the given image using a pre-trained model."""
-    result = img2caption(image)
-    return result[0]['generated_text']
+# img2text
+def img2text(url):
+    image_to_text_model = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
+    text = image_to_text_model(url)[0]["generated_text"]
+    return text
 
+# text2story
 def text2story(text):
-    """Generates a story from the given caption using a story generation model."""
-    story_text = story_gen(text)[0]['generated_text']
+    pipe = pipeline("text-generation", model="pranavpsv/genre-story-generator-v2")
+    story_text = pipe(text)[0]['generated_text']
     return story_text
 
-# main part
-# App title
-st.title("Assignment")
+# text2audio
+def text2audio(story_text):
+    pipe = pipeline("text-to-audio", model="Matthijs/mms-tts-eng")
+    audio_data = pipe(story_text)
+    return audio_data
 
-# Write some text
-st.write("Image to Story")
 
-# File uploader for image
-uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+def main():
+    st.set_page_config(page_title="Your Image to Audio Story", page_icon="🦜")
+    st.header("Turn Your Image to Audio Story")
+    uploaded_file = st.file_uploader("Select an Image...")
 
-# Display image with spinner
-if uploaded_image is not None:
-    with st.spinner("Processing..."):
-        time.sleep(1)  # Simulate a delay
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        
-        # Generate caption
-        caption = generate_image_caption(uploaded_image.name)
-        st.write(f"**Generated Caption:** {caption}")
-        
-        # Button to generate story
-        if st.button("Generate Story from Caption"):
-            story = text2story(caption)
-            st.markdown("**Generated Story:**")
-            st.write(story)
+    if uploaded_file is not None:
+        print(uploaded_file)
+        bytes_data = uploaded_file.getvalue()
+        with open(uploaded_file.name, "wb") as file:
+            file.write(bytes_data)
+        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+
+
+        #Stage 1: Image to Text
+        st.text('Processing img2text...')
+        scenario = img2text(uploaded_file.name)
+        st.write(scenario)
