@@ -29,7 +29,6 @@ def main():
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
     if uploaded_file is not None:
-        print(uploaded_file)
 
         st.image(uploaded_image, caption="Uploaded Image", use_column_width=True)
 
