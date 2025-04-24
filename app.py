@@ -1,13 +1,19 @@
 # import part
 import streamlit as st
 from transformers import pipeline
+from PIL import Image
+import io
 
 # function part
-# function part
-def generate_image_caption(image_path):
+def generate_image_caption(image_file):
     """Generates a caption for the given image using a pre-trained model."""
     img2caption = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
-    result = img2caption(image_path)
+    
+    # Read the image file
+    image = Image.open(image_file)
+    
+    # Generate caption
+    result = img2caption(image)
     return result[0]['generated_text']
 
 # text2story
@@ -15,9 +21,6 @@ def text2story(text):
     pipe = pipeline("text-generation", model="pranavpsv/genre-story-generator-v2")
     story_text = pipe(text)[0]['generated_text']
     return story_text
-
-
-
 
 def main():
     # App title
@@ -29,13 +32,11 @@ def main():
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
     if uploaded_image is not None:
-
         st.image(uploaded_image, caption="Uploaded Image", use_column_width=True)
 
-
-        #Stage 1: Image to Text
+        # Stage 1: Image to Text
         st.text('Processing img2text...')
-        image_caption = generate_image_caption(uploaded_image.name)
+        image_caption = generate_image_caption(uploaded_image)
         st.write(image_caption)
 
 if __name__ == "__main__":
