@@ -5,13 +5,10 @@ from PIL import Image
 import io
 
 # function part
-def generate_image_caption(image_file):
+def generate_image_caption(image):
     """Generates a caption for the given image using a pre-trained model."""
     img2caption = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
-    
-    # Read the image file
-    image = Image.open(image_file)
-    
+       
     # Generate caption
     result = img2caption(image)
     return result[0]['generated_text']
@@ -32,11 +29,12 @@ def main():
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
     if uploaded_image is not None:
-        st.image(uploaded_image, caption="Uploaded Image", use_column_width=True)
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Uploaded Image", use_column_width=True)
 
         # Stage 1: Image to Text
         st.text('Processing img2text...')
-        image_caption = generate_image_caption(uploaded_image)
+        image_caption = generate_image_caption(image)
         st.write(image_caption)
 
 if __name__ == "__main__":
