@@ -39,3 +39,6 @@ def main():
         st.text('Processing img2text...')
         scenario = img2text(uploaded_file.name)
         st.write(scenario)
+
+if __name__ == "__main__":
+    main()
