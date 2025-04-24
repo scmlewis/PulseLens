@@ -37,7 +37,7 @@ if uploaded_image is not None:
         st.image(image, caption="Uploaded Image", use_column_width=True)
         
         # Generate caption
-        caption = generate_image_caption(uploaded_image)
+        caption = generate_image_caption(uploaded_image.name)
         st.write(f"**Generated Caption:** {caption}")
         
         # Button to generate story
