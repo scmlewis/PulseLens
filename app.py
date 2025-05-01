@@ -6,9 +6,7 @@ import torch
 import numpy as np
 
 def main():
-
-
-    st.title("yelp2024fall Test")
+    st.title("Test finetuned model with Yelp Review")
     st.write("Enter a sentence for analysis:")
 
     user_input = st.text_input("")
