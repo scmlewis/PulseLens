@@ -1,33 +1,20 @@
 import streamlit as st
 from transformers import pipeline
-from transformers import AutoModelForSequenceClassification
-from transformers import AutoTokenizer
-import torch
-import numpy as np
 
 def main():
-    st.title("Test finetuned model with Yelp Review")
-    st.write("Enter a sentence for analysis:")
+    sentiment_pipeline = pipeline(model="isom5240/2025SpringL2")
+
+    st.title("Sentiment Analysis with HuggingFace Spaces")
+    st.write("Enter a sentence to analyze its sentiment:")
 
     user_input = st.text_input("")
     if user_input:
-        # Approach: AutoModel
-        model2 = AutoModelForSequenceClassification.from_pretrained("isom5240/2025SpL2yelp",
-                                                                    num_labels=5)
-        tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        result = sentiment_pipeline(user_input)
+        sentiment = result[0]["label"]
+        confidence = result[0]["score"]
 
-        inputs = tokenizer(user_input,
-                        padding=True,
-                        truncation=True,
-                        return_tensors='pt')
-
-        outputs = model2(**inputs)
-        predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        predictions = predictions.cpu().detach().numpy()
-        # Get the index of the largest output value
-        max_index = np.argmax(predictions)
-        st.write(f"result (AutoModel) - Label: {max_index}")
-
+        st.write(f"Sentiment: {sentiment}")
+        st.write(f"Confidence: {confidence:.2f}")
 
 if __name__ == "__main__":
     main()
