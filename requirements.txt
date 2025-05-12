@@ -1,3 +1,5 @@
 streamlit==1.38.0
 transformers==4.44.2
-torch==2.5.0
+torch==2.5.0+cpu
+numpy==1.25.2
+sentencepiece==0.2.0
