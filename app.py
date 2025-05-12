@@ -7,6 +7,9 @@ import torch
 import numpy as np
 import re
 
+# Set page config as the first Streamlit command
+st.set_page_config(page_title="Resume Screening App", page_icon="📄", layout="centered")
+
 # Initialize models
 @st.cache_resource
 def load_models():
@@ -101,8 +104,6 @@ def classify_and_summarize(resume, job_description):
     return suitability, summary, warning
 
 # Streamlit interface
-st.set_page_config(page_title="Resume Screening App", page_icon="📄", layout="centered")
-
 # Introduction
 st.markdown("""
     <h1 style='text-align: center; color: #2E4053;'>Resume Screening Application</h1>
