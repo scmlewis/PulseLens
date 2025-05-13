@@ -160,7 +160,7 @@ with col_btn2:
 if reset_clicked:
     st.session_state.input_resume = ""
     st.session_state.input_job_description = ""
-    st.experimental_rerun()
+    st.rerun()
 
 # Handle analysis
 if analyze_clicked:
