@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening (Group36, ISOM5240 Topic 18)
+# Enhanced Streamlit Application for Resume Screening
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
