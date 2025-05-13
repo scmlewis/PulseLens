@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening with Multiple Resumes
+# Enhanced Streamlit Application for Resume Screening with Multiple Resumes (Group36, ISOM5240 Topic 18)
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -7,10 +7,18 @@ import torch
 import numpy as np
 import re
 import io
-import time
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="centered")
+
+# Set sidebar width
+st.markdown("""
+    <style>
+    .css-1d391kg {  /* Sidebar class in Streamlit */
+        width: 350px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Initialize models
 @st.cache_resource
@@ -56,63 +64,69 @@ def validate_input(text, is_resume=True):
         return "Please include experience (e.g., '4 years experience' or 'senior')."
     return None
 
-def classify_and_summarize(resume, job_description):
-    original_resume = resume
-    resume = normalize_text(resume)
+def classify_and_summarize_batch(resumes, job_description):
     job_description = normalize_text(job_description)
-    input_text = f"resume: {resume} [sep] job: {job_description}"
-    
-    inputs = bert_tokenizer(input_text, return_tensors='pt', padding=True, truncation=True, max_length=128)
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    inputs = [f"resume: {normalize_text(resume)} [sep] job: {job_description}" for resume in resumes]
+    tokenized = bert_tokenizer(inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
+    tokenized = {k: v.to(device) for k, v in tokenized.items()}
     
     with torch.no_grad():
-        outputs = bert_model(**inputs)
+        outputs = bert_model(**tokenized)
     
     logits = outputs.logits
-    probabilities = torch.softmax(logits, dim=1).cpu().numpy()[0]
-    prediction = np.argmax(probabilities)
+    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+    predictions = np.argmax(probabilities, axis=1)
     
-    confidence_threshold = 0.90
-    if probabilities[prediction] < confidence_threshold:
-        suitability = "Uncertain"
-        warning = f"Low confidence: {probabilities[prediction]:.4f}"
-    else:
-        suitability = "Relevant" if prediction == 1 else "Irrelevant"
-        warning = None
+    confidence_threshold = 0.85  # Adjusted to 85% for testing
+    results = []
+    for i, (resume, prob, pred) in enumerate(zip(resumes, probabilities, predictions)):
+        if prob[pred] < confidence_threshold:
+            suitability = "Uncertain"
+            warning = f"Low confidence: {prob[pred]:.4f}"
+        else:
+            suitability = "Relevant" if pred == 1 else "Irrelevant"
+            warning = None
+        
+        exp_warning = check_experience_mismatch(resume, job_description)
+        if exp_warning and suitability == "Relevant":
+            suitability = "Uncertain"
+            warning = exp_warning if not warning else f"{warning}; {exp_warning}"
+        
+        prompt = f"summarize: {normalize_text(resume)}"
+        inputs = t5_tokenizer(prompt, return_tensors='pt', padding=True, truncation=True, max_length=128).to(device)
+        
+        with torch.no_grad():
+            outputs = t5_model.generate(
+                inputs['input_ids'],
+                max_length=18,
+                min_length=8,
+                num_beams=4,
+                no_repeat_ngram_size=3,
+                length_penalty=3.0,
+                early_stopping=True
+            )
+        
+        summary = t5_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        summary = re.sub(r'with\s*(sql|pandas|java|c\+\+|python|machine\s*learning|tableau|\d+\s*years)\s*(and\s*\1)?', '', summary).strip()
+        summary = re.sub(r'\b(skilled in|proficient in|expert in|versed in|experienced in|specialized in|accomplished in|trained in)\b', '', summary).strip()
+        summary = re.sub(r'\s*and\s*(sql|pandas|java|c\+\+|python|machine\s*learning|tableau|\d+\s*years)', '', summary).strip()
+        summary = re.sub(r'experience\s*(of|and)\s*experience', 'experience', summary).strip()
+        summary = re.sub(r'years\s*years', 'years', summary).strip()
+        skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau)\b', prompt.lower())
+        exp_match = re.search(r'\d+\s*years|senior', resume.lower())
+        if skills and exp_match:
+            summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
+        else:
+            summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
+        
+        results.append({
+            "Resume": f"Resume {st.session_state.resumes.index(resume)+1}",
+            "Suitability": f"✅ {suitability}" if suitability == "Relevant" else f"❌ {suitability}" if suitability == "Irrelevant" else f"❓ {suitability}",
+            "Data/Tech Related Skills Summary": summary,
+            "Warning": warning or "None"
+        })
     
-    exp_warning = check_experience_mismatch(original_resume, job_description)
-    if exp_warning and suitability == "Relevant":
-        suitability = "Uncertain"
-        warning = exp_warning if not warning else f"{warning}; {exp_warning}"
-    
-    prompt = f"summarize: {resume}"
-    inputs = t5_tokenizer(prompt, return_tensors='pt', padding=True, truncation=True, max_length=128).to(device)
-    
-    with torch.no_grad():
-        outputs = t5_model.generate(
-            inputs['input_ids'],
-            max_length=18,
-            min_length=8,
-            num_beams=4,
-            no_repeat_ngram_size=3,
-            length_penalty=3.0,
-            early_stopping=True
-        )
-    
-    summary = t5_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-    summary = re.sub(r'with\s*(sql|pandas|java|c\+\+|python|machine\s*learning|tableau|\d+\s*years)\s*(and\s*\1)?', '', summary).strip()
-    summary = re.sub(r'\b(skilled in|proficient in|expert in|versed in|experienced in|specialized in|accomplished in|trained in)\b', '', summary).strip()
-    summary = re.sub(r'\s*and\s*(sql|pandas|java|c\+\+|python|machine\s*learning|tableau|\d+\s*years)', '', summary).strip()
-    summary = re.sub(r'experience\s*(of|and)\s*experience', 'experience', summary).strip()
-    summary = re.sub(r'years\s*years', 'years', summary).strip()
-    skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau)\b', prompt.lower())
-    exp_match = re.search(r'\d+\s*years|senior', resume.lower())
-    if skills and exp_match:
-        summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
-    else:
-        summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
-    
-    return suitability, summary, warning
+    return results
 
 # Streamlit interface
 # Sidebar with Instructions and Criteria
@@ -124,7 +138,8 @@ with st.sidebar:
             - Enter the job description in the provided text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
             - Click **Analyze** to evaluate all non-empty resumes (at least one required).
             - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields.
-            - Use the **Reset** button to clear all inputs and start over.
+            - Use the **Reset** button to clear all inputs and results.
+            - Download results as a CSV file for record-keeping.
 
             **Guidelines**:
             - Use clear, comma-separated lists for skills (e.g., "python, sql, pandas").
@@ -138,16 +153,16 @@ with st.sidebar:
             - **Experience Match**: The resume’s experience (in years or seniority) must meet or exceed the job’s requirement.
             
             **Outcomes**:
-            - **Relevant** ✅: High skill overlap and sufficient experience, with strong confidence (≥90%).
+            - **Relevant** ✅: High skill overlap and sufficient experience, with strong confidence (≥85%).
             - **Irrelevant** ❌: Low skill overlap or insufficient experience, with strong confidence.
-            - **Uncertain** ❓: Borderline confidence (<90%) or experience mismatch (e.g., resume has 2 years, job requires 3 years+).
+            - **Uncertain** ❓: Borderline confidence (<85%) or experience mismatch (e.g., resume has 2 years, job requires 3 years+).
             
             **Note**: An experience mismatch warning (⚠️) is shown if the resume’s experience is below the job’s requirement, even if skills match.
         """)
 
 # Introduction
 st.markdown("""
-    <h1 style='text-align: center; color: #2E4053;'>Resume Screening Assistant for Data/Tech</h1>
+    <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);'>💻 Resume Screening Assistant for Data/Tech 📊</h1>
     <p style='text-align: center; color: #566573;'>
         Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
     </p>
@@ -155,11 +170,13 @@ st.markdown("""
 
 # Input form
 st.markdown("### 📝 Enter Resumes")
-# Initialize resumes in session state
+# Initialize resumes and results in session state
 if 'resumes' not in st.session_state:
     st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience", "", ""]
 if 'input_job_description' not in st.session_state:
     st.session_state.input_job_description = "Data scientist requires python, machine learning, 3 years+"
+if 'results' not in st.session_state:
+    st.session_state.results = []
 
 # Resume inputs
 for i in range(len(st.session_state.resumes)):
@@ -199,43 +216,43 @@ with col_btn2:
 if reset_clicked:
     st.session_state.resumes = ["", "", ""]
     st.session_state.input_job_description = ""
+    st.session_state.results = []
     st.rerun()
 
 # Handle analysis
 if analyze_clicked:
     valid_resumes = [resume for resume in st.session_state.resumes if resume.strip()]
     if valid_resumes and job_description.strip():
-        results = []
-        total_resumes = len(valid_resumes)
+        st.session_state.results = []  # Clear previous results
+        total_steps = len(valid_resumes) + 1  # BERT batch + T5 per resume
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        for i, resume in enumerate(valid_resumes):
-            status_text.text(f"Analyzing resume {i+1} of {total_resumes}...")
-            suitability, summary, warning = classify_and_summarize(resume, job_description)
-            results.append({
-                "Resume": f"Resume {st.session_state.resumes.index(resume)+1}",
-                "Suitability": f"✅ {suitability}" if suitability == "Relevant" else f"❌ {suitability}" if suitability == "Irrelevant" else f"❓ {suitability}",
-                "Data/Tech Related Skills Summary": summary,
-                "Warning": warning or "None"
-            })
-            progress_bar.progress((i + 1) / total_resumes)
-            time.sleep(0.1)  # Simulate progress for visibility
+        # Batch classification
+        status_text.text("Classifying resumes (batch processing)...")
+        results = classify_and_summarize_batch(valid_resumes, job_description)
+        progress_bar.progress(1 / total_steps)
+        
+        st.session_state.results = results
         
         status_text.empty()
         progress_bar.empty()
         st.success("Analysis completed! 🎉")
-        st.markdown("### 📊 Results")
-        st.table(results)
-        
-        # Download results as CSV
-        csv_buffer = io.StringIO()
-        csv_buffer.write("Resume Number,Resume Text,Job Description,Suitability,Summary,Warning\n")
-        for i, result in enumerate(results):
-            resume_text = valid_resumes[i].replace('"', '""').replace('\n', ' ')
-            job_text = job_description.replace('"', '""').replace('\n', ' ')
-            suitability = result["Suitability"].replace('✅ ', '').replace('❌ ', '').replace('❓ ', '')
-            csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{suitability}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
-        st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
+    
     else:
         st.error("Please enter at least one resume and a job description.")
+
+# Display results
+if st.session_state.results:
+    st.markdown("### 📊 Results")
+    st.table(st.session_state.results)
+    
+    # Download results as CSV
+    csv_buffer = io.StringIO()
+    csv_buffer.write("Resume Number,Resume Text,Job Description,Suitability,Summary,Warning\n")
+    for i, result in enumerate(st.session_state.results):
+        resume_text = valid_resumes[i].replace('"', '""').replace('\n', ' ')
+        job_text = job_description.replace('"', '""').replace('\n', ' ')
+        suitability = result["Suitability"].replace('✅ ', '').replace('❌ ', '').replace('❓ ', '')
+        csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{suitability}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
+    st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
