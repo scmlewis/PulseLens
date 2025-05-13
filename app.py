@@ -1,11 +1,13 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening
+# Enhanced Streamlit Application for Resume Screening with Multiple Resumes
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
 import torch
 import numpy as np
 import re
+import io
+import time
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="centered")
@@ -45,6 +47,15 @@ def check_experience_mismatch(resume, job_description):
             return f"Experience mismatch: Resume has {resume_years}, job requires {job_years}"
     return None
 
+def validate_input(text, is_resume=True):
+    if not text.strip() or len(text.strip()) < 10:
+        return "Input is too short (minimum 10 characters)."
+    if not re.search(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau)\b', text.lower()):
+        return "Please include at least one data/tech skill (e.g., python, sql)."
+    if is_resume and not re.search(r'\d+\s*years|senior', text.lower()):
+        return "Please include experience (e.g., '4 years experience' or 'senior')."
+    return None
+
 def classify_and_summarize(resume, job_description):
     original_resume = resume
     resume = normalize_text(resume)
@@ -61,7 +72,7 @@ def classify_and_summarize(resume, job_description):
     probabilities = torch.softmax(logits, dim=1).cpu().numpy()[0]
     prediction = np.argmax(probabilities)
     
-    confidence_threshold = 0.90  # Adjusted to 90% for less counterintuitive Uncertain cases
+    confidence_threshold = 0.90
     if probabilities[prediction] < confidence_threshold:
         suitability = "Uncertain"
         warning = f"Low confidence: {probabilities[prediction]:.4f}"
@@ -109,10 +120,11 @@ with st.sidebar:
     with st.expander("📋 How to Use the App", expanded=True):
         st.markdown("""
             **Instructions**:
-            - Enter the candidate's resume in the first text box, listing data/tech skills and experience (e.g., "Expert in python, machine learning, 4 years experience").
-            - Enter the job description in the second text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
-            - Click **Analyze** to get the suitability and summary.
-            - Use the **Reset** button to clear inputs and start over.
+            - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, machine learning, 4 years experience").
+            - Enter the job description in the provided text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
+            - Click **Analyze** to evaluate all non-empty resumes (at least one required).
+            - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields.
+            - Use the **Reset** button to clear all inputs and start over.
 
             **Guidelines**:
             - Use clear, comma-separated lists for skills (e.g., "python, sql, pandas").
@@ -126,30 +138,57 @@ with st.sidebar:
             - **Experience Match**: The resume’s experience (in years or seniority) must meet or exceed the job’s requirement.
             
             **Outcomes**:
-            - **Relevant**: High skill overlap and sufficient experience, with strong confidence (≥90%).
-            - **Irrelevant**: Low skill overlap or insufficient experience, with strong confidence.
-            - **Uncertain**: Borderline confidence (<90%) or experience mismatch (e.g., resume has 2 years, job requires 3 years+).
+            - **Relevant** ✅: High skill overlap and sufficient experience, with strong confidence (≥90%).
+            - **Irrelevant** ❌: Low skill overlap or insufficient experience, with strong confidence.
+            - **Uncertain** ❓: Borderline confidence (<90%) or experience mismatch (e.g., resume has 2 years, job requires 3 years+).
             
-            **Note**: An experience mismatch warning is shown if the resume’s experience is below the job’s requirement, even if skills match.
+            **Note**: An experience mismatch warning (⚠️) is shown if the resume’s experience is below the job’s requirement, even if skills match.
         """)
 
 # Introduction
 st.markdown("""
     <h1 style='text-align: center; color: #2E4053;'>Resume Screening Assistant for Data/Tech</h1>
     <p style='text-align: center; color: #566573;'>
-        Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates resumes against job descriptions to determine suitability, providing a concise summary of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
+        Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
     </p>
 """, unsafe_allow_html=True)
 
 # Input form
-st.markdown("### 📝 Enter Details")
-col1, col2 = st.columns([1, 1])
-with col1:
-    resume = st.text_area("Resume", value=st.session_state.get('input_resume', "Expert in python, machine learning, tableau, 4 years experience"), height=100, key="resume")
-with col2:
-    job_description = st.text_area("Job Description", value=st.session_state.get('input_job_description', "Data scientist requires python, machine learning, 3 years+"), height=100, key="job_description")
+st.markdown("### 📝 Enter Resumes")
+# Initialize resumes in session state
+if 'resumes' not in st.session_state:
+    st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience", "", ""]
+if 'input_job_description' not in st.session_state:
+    st.session_state.input_job_description = "Data scientist requires python, machine learning, 3 years+"
 
-# Buttons
+# Resume inputs
+for i in range(len(st.session_state.resumes)):
+    st.session_state.resumes[i] = st.text_area(f"Resume {i+1}", value=st.session_state.resumes[i], height=100, key=f"resume_{i}")
+    # Real-time validation for resumes
+    validation_error = validate_input(st.session_state.resumes[i], is_resume=True)
+    if validation_error and st.session_state.resumes[i].strip():
+        st.warning(f"Resume {i+1}: {validation_error}")
+
+# Job description input
+st.markdown("### 📋 Enter Job Description")
+job_description = st.text_area("Job Description", value=st.session_state.input_job_description, height=100, key="job_description")
+# Real-time validation for job description
+validation_error = validate_input(job_description, is_resume=False)
+if validation_error and job_description.strip():
+    st.warning(f"Job Description: {validation_error}")
+
+# Add/Remove resume buttons
+col_add, col_remove, _ = st.columns([1, 1, 3])
+with col_add:
+    if st.button("Add Resume") and len(st.session_state.resumes) < 5:
+        st.session_state.resumes.append("")
+        st.rerun()
+with col_remove:
+    if st.button("Remove Resume") and len(st.session_state.resumes) > 1:
+        st.session_state.resumes.pop()
+        st.rerun()
+
+# Analyze and Reset buttons
 col_btn1, col_btn2, _ = st.columns([1, 1, 3])
 with col_btn1:
     analyze_clicked = st.button("Analyze", type="primary")
@@ -158,20 +197,45 @@ with col_btn2:
 
 # Handle reset
 if reset_clicked:
-    st.session_state.input_resume = ""
+    st.session_state.resumes = ["", "", ""]
     st.session_state.input_job_description = ""
     st.rerun()
 
 # Handle analysis
 if analyze_clicked:
-    if resume.strip() and job_description.strip():
-        with st.spinner("Analyzing resume..."):
+    valid_resumes = [resume for resume in st.session_state.resumes if resume.strip()]
+    if valid_resumes and job_description.strip():
+        results = []
+        total_resumes = len(valid_resumes)
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, resume in enumerate(valid_resumes):
+            status_text.text(f"Analyzing resume {i+1} of {total_resumes}...")
             suitability, summary, warning = classify_and_summarize(resume, job_description)
+            results.append({
+                "Resume": f"Resume {st.session_state.resumes.index(resume)+1}",
+                "Suitability": f"✅ {suitability}" if suitability == "Relevant" else f"❌ {suitability}" if suitability == "Irrelevant" else f"❓ {suitability}",
+                "Data/Tech Related Skills Summary": summary,
+                "Warning": warning or "None"
+            })
+            progress_bar.progress((i + 1) / total_resumes)
+            time.sleep(0.1)  # Simulate progress for visibility
+        
+        status_text.empty()
+        progress_bar.empty()
         st.success("Analysis completed! 🎉")
         st.markdown("### 📊 Results")
-        st.markdown(f"**Suitability**: {suitability}", unsafe_allow_html=True)
-        st.markdown(f"**Data/Tech Related Skills Summary**: {summary}", unsafe_allow_html=True)
-        if warning:
-            st.warning(f"**Warning**: {warning}")
+        st.table(results)
+        
+        # Download results as CSV
+        csv_buffer = io.StringIO()
+        csv_buffer.write("Resume Number,Resume Text,Job Description,Suitability,Summary,Warning\n")
+        for i, result in enumerate(results):
+            resume_text = valid_resumes[i].replace('"', '""').replace('\n', ' ')
+            job_text = job_description.replace('"', '""').replace('\n', ' ')
+            suitability = result["Suitability"].replace('✅ ', '').replace('❌ ', '').replace('❓ ', '')
+            csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{suitability}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
+        st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
     else:
-        st.error("Please enter both a resume and job description.")
+        st.error("Please enter at least one resume and a job description.")
