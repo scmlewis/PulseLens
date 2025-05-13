@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening
+# Enhanced Streamlit Application for Resume Screening (Group36, ISOM5240 Topic 18)
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -8,7 +8,7 @@ import numpy as np
 import re
 
 # Set page config as the first Streamlit command
-st.set_page_config(page_title="Resume Screening App", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="centered")
 
 # Initialize models
 @st.cache_resource
@@ -61,7 +61,7 @@ def classify_and_summarize(resume, job_description):
     probabilities = torch.softmax(logits, dim=1).cpu().numpy()[0]
     prediction = np.argmax(probabilities)
     
-    confidence_threshold = 0.95
+    confidence_threshold = 0.90  # Adjusted to 90% for less counterintuitive Uncertain cases
     if probabilities[prediction] < confidence_threshold:
         suitability = "Uncertain"
         warning = f"Low confidence: {probabilities[prediction]:.4f}"
@@ -104,51 +104,50 @@ def classify_and_summarize(resume, job_description):
     return suitability, summary, warning
 
 # Streamlit interface
+# Sidebar with Instructions and Criteria
+with st.sidebar:
+    with st.expander("📋 How to Use the App", expanded=True):
+        st.markdown("""
+            **Instructions**:
+            - Enter the candidate's resume in the first text box, listing data/tech skills and experience (e.g., "Expert in python, machine learning, 4 years experience").
+            - Enter the job description in the second text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
+            - Click **Analyze** to get the suitability and summary.
+            - Use the **Reset** button to clear inputs and start over.
+
+            **Guidelines**:
+            - Use clear, comma-separated lists for skills (e.g., "python, sql, pandas").
+            - Include experience in years (e.g., "4 years experience") or as "senior" for senior-level roles.
+            - Focus on data science and tech skills, as the app summarizes only these (e.g., python, sql, machine learning).
+        """)
+    with st.expander("ℹ️ Classification Criteria", expanded=True):
+        st.markdown("""
+            The app classifies resumes based on:
+            - **Skill Overlap**: At least 70% of the job’s required data/tech skills must match the resume’s skills.
+            - **Experience Match**: The resume’s experience (in years or seniority) must meet or exceed the job’s requirement.
+            
+            **Outcomes**:
+            - **Relevant**: High skill overlap and sufficient experience, with strong confidence (≥90%).
+            - **Irrelevant**: Low skill overlap or insufficient experience, with strong confidence.
+            - **Uncertain**: Borderline confidence (<90%) or experience mismatch (e.g., resume has 2 years, job requires 3 years+).
+            
+            **Note**: An experience mismatch warning is shown if the resume’s experience is below the job’s requirement, even if skills match.
+        """)
+
 # Introduction
 st.markdown("""
-    <h1 style='text-align: center; color: #2E4053;'>Resume Screening Application</h1>
+    <h1 style='text-align: center; color: #2E4053;'>Resume Screening Assistant for Data/Tech</h1>
     <p style='text-align: center; color: #566573;'>
-        Welcome to our AI-powered resume screening tool! This app evaluates resumes against job descriptions to determine suitability, providing a concise summary of key skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening.
+        Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates resumes against job descriptions to determine suitability, providing a concise summary of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
     </p>
 """, unsafe_allow_html=True)
-
-# Instructions and Guidelines
-with st.expander("📋 How to Use the App", expanded=False):
-    st.markdown("""
-        **Instructions**:
-        - Enter the candidate's resume in the first text box, listing skills and experience (e.g., "Expert in python, machine learning, 4 years experience").
-        - Enter the job description in the second text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
-        - Click **Analyze** to get the suitability and summary.
-        - Use the **Reset** button to clear inputs and start over.
-
-        **Guidelines**:
-        - Use clear, comma-separated lists for skills (e.g., "python, sql, pandas").
-        - Include experience in years (e.g., "4 years experience") or as "senior" for senior-level roles.
-        - Avoid ambiguous phrases; be specific about skills and requirements.
-    """)
-
-# Classification Criteria
-with st.expander("ℹ️ Classification Criteria", expanded=False):
-    st.markdown("""
-        The app classifies resumes based on:
-        - **Skill Overlap**: At least 70% of the job’s required skills must match the resume’s skills.
-        - **Experience Match**: The resume’s experience (in years or seniority) must meet or exceed the job’s requirement.
-        
-        **Outcomes**:
-        - **Relevant**: High skill overlap and sufficient experience, with strong confidence (≥95%).
-        - **Irrelevant**: Low skill overlap or insufficient experience, with strong confidence.
-        - **Uncertain**: Borderline confidence (<95%) or experience mismatch (e.g., resume has 2 years, job requires 3 years+).
-        
-        **Note**: An experience mismatch warning is shown if the resume’s experience is below the job’s requirement, even if skills match.
-    """)
 
 # Input form
 st.markdown("### 📝 Enter Details")
 col1, col2 = st.columns([1, 1])
 with col1:
-    resume = st.text_area("Resume", value="Expert in python, machine learning, tableau, 4 years experience", height=100, key="resume")
+    resume = st.text_area("Resume", value=st.session_state.get('input_resume', "Expert in python, machine learning, tableau, 4 years experience"), height=100, key="resume")
 with col2:
-    job_description = st.text_area("Job Description", value="Data scientist requires python, machine learning, 3 years+", height=100, key="job_description")
+    job_description = st.text_area("Job Description", value=st.session_state.get('input_job_description', "Data scientist requires python, machine learning, 3 years+"), height=100, key="job_description")
 
 # Buttons
 col_btn1, col_btn2, _ = st.columns([1, 1, 3])
@@ -159,8 +158,8 @@ with col_btn2:
 
 # Handle reset
 if reset_clicked:
-    st.session_state.resume = ""
-    st.session_state.job_description = ""
+    st.session_state.input_resume = ""
+    st.session_state.input_job_description = ""
     st.experimental_rerun()
 
 # Handle analysis
@@ -171,7 +170,7 @@ if analyze_clicked:
         st.success("Analysis completed! 🎉")
         st.markdown("### 📊 Results")
         st.markdown(f"**Suitability**: {suitability}", unsafe_allow_html=True)
-        st.markdown(f"**Summary**: {summary}", unsafe_allow_html=True)
+        st.markdown(f"**Data/Tech Related Skills Summary**: {summary}", unsafe_allow_html=True)
         if warning:
             st.warning(f"**Warning**: {warning}")
     else:
