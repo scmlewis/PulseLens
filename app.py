@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening with Multiple Resumes (Group36, ISOM5240 Topic 18)
+# Enhanced Streamlit Application for Resume Screening with Multiple Resumes
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -9,12 +9,12 @@ import re
 import io
 
 # Set page config as the first Streamlit command
-st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
 
 # Set sidebar width
 st.markdown("""
     <style>
-    .css-1d391kg {  /* Sidebar class in Streamlit */
+    .css-1d391kg {  /* Sidebar */
         width: 350px !important;
     }
     </style>
@@ -77,7 +77,7 @@ def classify_and_summarize_batch(resumes, job_description):
     probabilities = torch.softmax(logits, dim=1).cpu().numpy()
     predictions = np.argmax(probabilities, axis=1)
     
-    confidence_threshold = 0.85  # Adjusted to 85% for testing
+    confidence_threshold = 0.85
     results = []
     for i, (resume, prob, pred) in enumerate(zip(resumes, probabilities, predictions)):
         if prob[pred] < confidence_threshold:
@@ -162,10 +162,12 @@ with st.sidebar:
 
 # Introduction
 st.markdown("""
-    <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);'>💻 Resume Screening Assistant for Data/Tech 📊</h1>
-    <p style='text-align: center; color: #566573;'>
-        Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
-    </p>
+    <div style='border: 2px solid #007BFF; background-color: #F5F6F5; padding: 20px; margin: 10px auto; border-radius: 8px; max-width: 800px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);'>
+        <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);'>💻 Resume Screening Assistant for Data/Tech 📊</h1>
+        <p style='text-align: center; color: #007BFF;'>
+            Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
+        </p>
+    </div>
 """, unsafe_allow_html=True)
 
 # Input form
@@ -177,6 +179,8 @@ if 'input_job_description' not in st.session_state:
     st.session_state.input_job_description = "Data scientist requires python, machine learning, 3 years+"
 if 'results' not in st.session_state:
     st.session_state.results = []
+if 'valid_resumes' not in st.session_state:
+    st.session_state.valid_resumes = []
 
 # Resume inputs
 for i in range(len(st.session_state.resumes)):
@@ -185,14 +189,6 @@ for i in range(len(st.session_state.resumes)):
     validation_error = validate_input(st.session_state.resumes[i], is_resume=True)
     if validation_error and st.session_state.resumes[i].strip():
         st.warning(f"Resume {i+1}: {validation_error}")
-
-# Job description input
-st.markdown("### 📋 Enter Job Description")
-job_description = st.text_area("Job Description", value=st.session_state.input_job_description, height=100, key="job_description")
-# Real-time validation for job description
-validation_error = validate_input(job_description, is_resume=False)
-if validation_error and job_description.strip():
-    st.warning(f"Job Description: {validation_error}")
 
 # Add/Remove resume buttons
 col_add, col_remove, _ = st.columns([1, 1, 3])
@@ -204,6 +200,14 @@ with col_remove:
     if st.button("Remove Resume") and len(st.session_state.resumes) > 1:
         st.session_state.resumes.pop()
         st.rerun()
+
+# Job description input
+st.markdown("### 📋 Enter Job Description")
+job_description = st.text_area("Job Description", value=st.session_state.input_job_description, height=100, key="job_description")
+# Real-time validation for job description
+validation_error = validate_input(job_description, is_resume=False)
+if validation_error and job_description.strip():
+    st.warning(f"Job Description: {validation_error}")
 
 # Analyze and Reset buttons
 col_btn1, col_btn2, _ = st.columns([1, 1, 3])
@@ -217,6 +221,7 @@ if reset_clicked:
     st.session_state.resumes = ["", "", ""]
     st.session_state.input_job_description = ""
     st.session_state.results = []
+    st.session_state.valid_resumes = []
     st.rerun()
 
 # Handle analysis
@@ -224,6 +229,7 @@ if analyze_clicked:
     valid_resumes = [resume for resume in st.session_state.resumes if resume.strip()]
     if valid_resumes and job_description.strip():
         st.session_state.results = []  # Clear previous results
+        st.session_state.valid_resumes = valid_resumes
         total_steps = len(valid_resumes) + 1  # BERT batch + T5 per resume
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -251,7 +257,7 @@ if st.session_state.results:
     csv_buffer = io.StringIO()
     csv_buffer.write("Resume Number,Resume Text,Job Description,Suitability,Summary,Warning\n")
     for i, result in enumerate(st.session_state.results):
-        resume_text = valid_resumes[i].replace('"', '""').replace('\n', ' ')
+        resume_text = st.session_state.valid_resumes[i].replace('"', '""').replace('\n', ' ')
         job_text = job_description.replace('"', '""').replace('\n', ' ')
         suitability = result["Suitability"].replace('✅ ', '').replace('❌ ', '').replace('❓ ', '')
         csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{suitability}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
