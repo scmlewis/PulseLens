@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening with Multiple Resumes (Group36, ISOM5240 Topic 18)
+# Enhanced Streamlit Application for Resume Screening with Multiple Resumes
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -20,6 +20,13 @@ st.markdown("""
     }
     [data-testid="stSidebarNav"] {  /* Hide toggle button */
         display: none !important;
+    }
+    [data-testid="stExpander"] summary {  /* Expander headers */
+        font-size: 24px !important;
+        color: #007BFF !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1) !important;
+        white-space: nowrap !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -102,7 +109,7 @@ def classify_and_summarize_batch(resumes, job_description):
         with torch.no_grad():
             outputs = t5_model.generate(
                 inputs['input_ids'],
-                max_length=30,  # Increased to accommodate more skills
+                max_length=30,
                 min_length=8,
                 num_beams=4,
                 no_repeat_ngram_size=3,
@@ -111,12 +118,10 @@ def classify_and_summarize_batch(resumes, job_description):
             )
         
         summary = t5_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-        # Simplified cleaning to avoid stripping skills like "c++"
-        summary = re.sub(r'\s+', ' ', summary).strip()  # Normalize spaces
+        summary = re.sub(r'\s+', ' ', summary).strip()
         skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau|r|javascript|scala|go|ruby|tensorflow|pytorch|scikit-learn|keras|deep\s*learning|nlp|computer\s*vision|aws|azure|gcp|docker|kubernetes|spark|hadoop|kafka|airflow|power\s*bi|matplotlib|seaborn|plotly|ggplot|mysql|postgresql|mongodb|redis|git|linux|api|rest)\b', prompt.lower())
         exp_match = re.search(r'\d+\s*years|senior', resume.lower())
         if skills and exp_match:
-            # Remove duplicates while preserving order
             seen = set()
             unique_skills = [s for s in skills if not (s in seen or seen.add(s))]
             summary = f"{', '.join(unique_skills)} proficiency, {exp_match.group(0)} experience"
@@ -133,7 +138,6 @@ def classify_and_summarize_batch(resumes, job_description):
     return results
 
 def generate_skill_pie_chart(resumes):
-    # Extract skills from all non-empty resumes using regex
     skills = [
         'python', 'sql', 'pandas', 'java', 'c++', 'machine learning', 'tableau',
         'r', 'javascript', 'scala', 'go', 'ruby',
@@ -157,7 +161,6 @@ def generate_skill_pie_chart(resumes):
                 if re.search(rf'\b{re.escape(skill)}\b', resume_lower):
                     skill_counts[skill] += 1
     
-    # Calculate percentages
     labels = []
     sizes = []
     for skill, count in skill_counts.items():
@@ -168,11 +171,10 @@ def generate_skill_pie_chart(resumes):
     if not sizes:
         return None
     
-    # Generate pie chart
     fig, ax = plt.subplots(figsize=(6, 4))
-    colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))  # Shades of blue to match #007BFF
+    colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
-    ax.axis('equal')  # Equal aspect ratio ensures pie is circular
+    ax.axis('equal')
     plt.title("Skill Frequency Across Resumes", fontsize=12, color='#007BFF', pad=10)
     return fig
 
@@ -180,12 +182,10 @@ def generate_skill_pie_chart(resumes):
 # Sidebar with Header, Intro, Instructions, and Criteria
 with st.sidebar:
     st.markdown("""
-        <div style='border: 2px solid #007BFF; background-color: #F5F6F5; padding: 10px; margin: 5px auto; border-radius: 8px; max-width: 300px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);'>
-            <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);'>💻 Resume Screening Assistant for Data/Tech</h1>
-            <p style='text-align: center; color: #007BFF; font-size: 12px;'>
-                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
-            </p>
-        </div>
+        <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
+        <p style='text-align: center; color: #007BFF; font-size: 16px; margin-top: 0;'>
+            Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
+        </p>
     """, unsafe_allow_html=True)
     
     with st.expander("📋 How to Use the App", expanded=True):
@@ -276,13 +276,12 @@ if reset_clicked:
 if analyze_clicked:
     valid_resumes = [resume for resume in st.session_state.resumes if resume.strip()]
     if valid_resumes and job_description.strip():
-        st.session_state.results = []  # Clear previous results
+        st.session_state.results = []
         st.session_state.valid_resumes = valid_resumes
-        total_steps = len(valid_resumes) + 1  # BERT batch + T5 per resume
+        total_steps = len(valid_resumes) + 1
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        # Batch classification
         status_text.text("Classifying resumes (batch processing)...")
         results = classify_and_summarize_batch(valid_resumes, job_description)
         progress_bar.progress(1 / total_steps)
@@ -301,7 +300,6 @@ if st.session_state.results:
     st.markdown("### 📊 Results")
     st.table(st.session_state.results)
     
-    # Download results as CSV
     csv_buffer = io.StringIO()
     csv_buffer.write("Resume Number,Resume Text,Job Description,Suitability,Summary,Warning\n")
     for i, result in enumerate(st.session_state.results):
@@ -311,11 +309,10 @@ if st.session_state.results:
         csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{suitability}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
     st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
     
-    # Display skill frequency pie chart
     with st.expander("📈 Skill Frequency Across Resumes", expanded=False):
         fig = generate_skill_pie_chart(st.session_state.valid_resumes)
         if fig:
             st.pyplot(fig)
-            plt.close(fig)  # Close figure to free memory
+            plt.close(fig)
         else:
             st.info("No recognized data/tech skills found in the resumes.")
