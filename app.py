@@ -18,15 +18,21 @@ st.markdown("""
     .css-1d391kg {  /* Sidebar */
         width: 350px !important;
     }
-    [data-testid="stSidebarNav"] {  /* Hide toggle button */
+    [data-testid="stSidebarCollapseButton"] {  /* Hide toggle button */
         display: none !important;
     }
+    .stSidebar {  /* Ensure sidebar visibility */
+        min-width: 350px !important;
+        visibility: visible !important;
+    }
     [data-testid="stExpander"] summary {  /* Expander headers */
-        font-size: 24px !important;
-        color: #007BFF !important;
+        font-size: 26px !important;
         font-weight: bold !important;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1) !important;
         white-space: nowrap !important;
+    }
+    .st-expander-content p {  /* Expander body text */
+        font-size: 12px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -183,7 +189,7 @@ def generate_skill_pie_chart(resumes):
 with st.sidebar:
     st.markdown("""
         <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
-        <p style='text-align: center; color: #007BFF; font-size: 16px; margin-top: 0;'>
+        <p style='text-align: center; font-size: 16px; margin-top: 0;'>
             Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
         </p>
     """, unsafe_allow_html=True)
@@ -191,7 +197,7 @@ with st.sidebar:
     with st.expander("📋 How to Use the App", expanded=True):
         st.markdown("""
             **Instructions**:
-            - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, tensorflow, 4 years experience").
+           .ConcurrentModificationException: - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, tensorflow, 4 years experience").
             - Enter the job description in the provided text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
             - Click **Analyze** to evaluate all non-empty resumes (at least one required).
             - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields.
