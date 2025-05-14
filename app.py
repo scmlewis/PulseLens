@@ -105,7 +105,7 @@ def classify_and_summarize_batch(resumes, job_description):
             warning = None
         
         exp_warning = check_experience_mismatch(resume, job_description)
-        if exp_warning and suitability == "Relevant":
+        if exp_warning:
             suitability = "Uncertain"
             warning = exp_warning if not warning else f"{warning}; {exp_warning}"
         
@@ -128,9 +128,7 @@ def classify_and_summarize_batch(resumes, job_description):
         skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau|r|javascript|scala|go|ruby|tensorflow|pytorch|scikit-learn|keras|deep\s*learning|nlp|computer\s*vision|aws|azure|gcp|docker|kubernetes|spark|hadoop|kafka|airflow|power\s*bi|matplotlib|seaborn|plotly|ggplot|mysql|postgresql|mongodb|redis|git|linux|api|rest)\b', prompt.lower())
         exp_match = re.search(r'\d+\s*years|senior', resume.lower())
         if skills and exp_match:
-            seen = set()
-            unique_skills = [s for s in skills if not (s in seen or seen.add(s))]
-            summary = f"{', '.join(unique_skills)} proficiency, {exp_match.group(0)} experience"
+            summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
         else:
             summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
         
@@ -197,7 +195,7 @@ with st.sidebar:
     with st.expander("📋 How to Use the App", expanded=True):
         st.markdown("""
             **Instructions**:
-           .ConcurrentModificationException: - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, tensorflow, 4 years experience").
+            - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, tensorflow, 4 years experience").
             - Enter the job description in the provided text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
             - Click **Analyze** to evaluate all non-empty resumes (at least one required).
             - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields.
