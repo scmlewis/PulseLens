@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening with Multiple Resumes
+# Enhanced Streamlit Application for Resume Screening with Multiple Resumes (Group36, ISOM5240 Topic 18)
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -142,7 +142,7 @@ def generate_skill_pie_chart(resumes):
         if resume.strip():
             resume_lower = resume.lower()
             for skill in skills:
-                if re.search(rf'\b{skill}\b', resume_lower):
+                if re.search(rf'\b{re.escape(skill)}\b', resume_lower):
                     skill_counts[skill] += 1
     
     # Calculate percentages
@@ -200,7 +200,7 @@ with st.sidebar:
 # Introduction
 st.markdown("""
     <div style='border: 2px solid #007BFF; background-color: #F5F6F5; padding: 20px; margin: 10px auto; border-radius: 8px; max-width: 800px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);'>
-        <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);'>💻 Resume Screening Assistant for Data/Tech</h1>
+        <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);'>💻 Resume Screening Assistant for Data/Tech</h1>
         <p style='text-align: center; color: #007BFF;'>
             Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
         </p>
