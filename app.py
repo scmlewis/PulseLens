@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import re
 import io
+import matplotlib.pyplot as plt
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
@@ -128,6 +129,41 @@ def classify_and_summarize_batch(resumes, job_description):
     
     return results
 
+def generate_skill_pie_chart(resumes):
+    # Extract skills from all non-empty resumes using regex
+    skills = ['python', 'sql', 'pandas', 'java', 'c++', 'machine learning', 'tableau']
+    skill_counts = {skill: 0 for skill in skills}
+    total_resumes = len([r for r in resumes if r.strip()])
+    
+    if total_resumes == 0:
+        return None
+    
+    for resume in resumes:
+        if resume.strip():
+            resume_lower = resume.lower()
+            for skill in skills:
+                if re.search(rf'\b{skill}\b', resume_lower):
+                    skill_counts[skill] += 1
+    
+    # Calculate percentages
+    labels = []
+    sizes = []
+    for skill, count in skill_counts.items():
+        if count > 0:
+            labels.append(skill.capitalize())
+            sizes.append((count / total_resumes) * 100)
+    
+    if not sizes:
+        return None
+    
+    # Generate pie chart
+    fig, ax = plt.subplots(figsize=(6, 4))
+    colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))  # Shades of blue to match #007BFF
+    ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
+    ax.axis('equal')  # Equal aspect ratio ensures pie is circular
+    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#007BFF', pad=10)
+    return fig
+
 # Streamlit interface
 # Sidebar with Instructions and Criteria
 with st.sidebar:
@@ -140,6 +176,7 @@ with st.sidebar:
             - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields.
             - Use the **Reset** button to clear all inputs and results.
             - Download results as a CSV file for record-keeping.
+            - View the skill frequency pie chart below the results to see skill distribution.
 
             **Guidelines**:
             - Use clear, comma-separated lists for skills (e.g., "python, sql, pandas").
@@ -163,7 +200,7 @@ with st.sidebar:
 # Introduction
 st.markdown("""
     <div style='border: 2px solid #007BFF; background-color: #F5F6F5; padding: 20px; margin: 10px auto; border-radius: 8px; max-width: 800px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);'>
-        <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);'>💻 Resume Screening Assistant for Data/Tech 📊</h1>
+        <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);'>💻 Resume Screening Assistant for Data/Tech</h1>
         <p style='text-align: center; color: #007BFF;'>
             Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
         </p>
@@ -262,3 +299,12 @@ if st.session_state.results:
         suitability = result["Suitability"].replace('✅ ', '').replace('❌ ', '').replace('❓ ', '')
         csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{suitability}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
     st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
+    
+    # Display skill frequency pie chart
+    with st.expander("📈 Skill Frequency Across Resumes", expanded=False):
+        fig = generate_skill_pie_chart(st.session_state.valid_resumes)
+        if fig:
+            st.pyplot(fig)
+            plt.close(fig)  # Close figure to free memory
+        else:
+            st.info("No recognized data/tech skills found in the resumes.")
