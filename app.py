@@ -12,11 +12,14 @@ import matplotlib.pyplot as plt
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
 
-# Set sidebar width
+# Set sidebar width and make uncollapsible
 st.markdown("""
     <style>
     .css-1d391kg {  /* Sidebar */
         width: 350px !important;
+    }
+    [data-testid="stSidebarNav"] {  /* Hide toggle button */
+        display: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -59,7 +62,7 @@ def check_experience_mismatch(resume, job_description):
 def validate_input(text, is_resume=True):
     if not text.strip() or len(text.strip()) < 10:
         return "Input is too short (minimum 10 characters)."
-    if not re.search(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau)\b', text.lower()):
+    if not re.search(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau|r|javascript|scala|go|ruby|tensorflow|pytorch|scikit-learn|keras|deep\s*learning|nlp|computer\s*vision|aws|azure|gcp|docker|kubernetes|spark|hadoop|kafka|airflow|power\s*bi|matplotlib|seaborn|plotly|ggplot|mysql|postgresql|mongodb|redis|git|linux|api|rest)\b', text.lower()):
         return "Please include at least one data/tech skill (e.g., python, sql)."
     if is_resume and not re.search(r'\d+\s*years|senior', text.lower()):
         return "Please include experience (e.g., '4 years experience' or 'senior')."
@@ -99,7 +102,7 @@ def classify_and_summarize_batch(resumes, job_description):
         with torch.no_grad():
             outputs = t5_model.generate(
                 inputs['input_ids'],
-                max_length=18,
+                max_length=30,  # Increased to accommodate more skills
                 min_length=8,
                 num_beams=4,
                 no_repeat_ngram_size=3,
@@ -108,15 +111,15 @@ def classify_and_summarize_batch(resumes, job_description):
             )
         
         summary = t5_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-        summary = re.sub(r'with\s*(sql|pandas|java|c\+\+|python|machine\s*learning|tableau|\d+\s*years)\s*(and\s*\1)?', '', summary).strip()
-        summary = re.sub(r'\b(skilled in|proficient in|expert in|versed in|experienced in|specialized in|accomplished in|trained in)\b', '', summary).strip()
-        summary = re.sub(r'\s*and\s*(sql|pandas|java|c\+\+|python|machine\s*learning|tableau|\d+\s*years)', '', summary).strip()
-        summary = re.sub(r'experience\s*(of|and)\s*experience', 'experience', summary).strip()
-        summary = re.sub(r'years\s*years', 'years', summary).strip()
-        skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau)\b', prompt.lower())
+        # Simplified cleaning to avoid stripping skills like "c++"
+        summary = re.sub(r'\s+', ' ', summary).strip()  # Normalize spaces
+        skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau|r|javascript|scala|go|ruby|tensorflow|pytorch|scikit-learn|keras|deep\s*learning|nlp|computer\s*vision|aws|azure|gcp|docker|kubernetes|spark|hadoop|kafka|airflow|power\s*bi|matplotlib|seaborn|plotly|ggplot|mysql|postgresql|mongodb|redis|git|linux|api|rest)\b', prompt.lower())
         exp_match = re.search(r'\d+\s*years|senior', resume.lower())
         if skills and exp_match:
-            summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_skills = [s for s in skills if not (s in seen or seen.add(s))]
+            summary = f"{', '.join(unique_skills)} proficiency, {exp_match.group(0)} experience"
         else:
             summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
         
@@ -131,7 +134,16 @@ def classify_and_summarize_batch(resumes, job_description):
 
 def generate_skill_pie_chart(resumes):
     # Extract skills from all non-empty resumes using regex
-    skills = ['python', 'sql', 'pandas', 'java', 'c++', 'machine learning', 'tableau']
+    skills = [
+        'python', 'sql', 'pandas', 'java', 'c++', 'machine learning', 'tableau',
+        'r', 'javascript', 'scala', 'go', 'ruby',
+        'tensorflow', 'pytorch', 'scikit-learn', 'keras', 'deep learning', 'nlp', 'computer vision',
+        'aws', 'azure', 'gcp', 'docker', 'kubernetes',
+        'spark', 'hadoop', 'kafka', 'airflow',
+        'power bi', 'matplotlib', 'seaborn', 'plotly', 'ggplot',
+        'mysql', 'postgresql', 'mongodb', 'redis',
+        'git', 'linux', 'api', 'rest'
+    ]
     skill_counts = {skill: 0 for skill in skills}
     total_resumes = len([r for r in resumes if r.strip()])
     
@@ -165,12 +177,21 @@ def generate_skill_pie_chart(resumes):
     return fig
 
 # Streamlit interface
-# Sidebar with Instructions and Criteria
+# Sidebar with Header, Intro, Instructions, and Criteria
 with st.sidebar:
+    st.markdown("""
+        <div style='border: 2px solid #007BFF; background-color: #F5F6F5; padding: 10px; margin: 5px auto; border-radius: 8px; max-width: 300px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);'>
+            <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);'>💻 Resume Screening Assistant for Data/Tech</h1>
+            <p style='text-align: center; color: #007BFF; font-size: 12px;'>
+                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
     with st.expander("📋 How to Use the App", expanded=True):
         st.markdown("""
             **Instructions**:
-            - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, machine learning, 4 years experience").
+            - Enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, tensorflow, 4 years experience").
             - Enter the job description in the provided text box, specifying required skills and experience (e.g., "Data scientist requires python, machine learning, 3 years+").
             - Click **Analyze** to evaluate all non-empty resumes (at least one required).
             - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields.
@@ -179,9 +200,9 @@ with st.sidebar:
             - View the skill frequency pie chart below the results to see skill distribution.
 
             **Guidelines**:
-            - Use clear, comma-separated lists for skills (e.g., "python, sql, pandas").
+            - Use clear, comma-separated lists for skills (e.g., "python, sql, aws").
             - Include experience in years (e.g., "4 years experience") or as "senior" for senior-level roles.
-            - Focus on data science and tech skills, as the app summarizes only these (e.g., python, sql, machine learning).
+            - Focus on data science and tech skills, as the app summarizes only these (e.g., python, tensorflow, docker).
         """)
     with st.expander("ℹ️ Classification Criteria", expanded=True):
         st.markdown("""
@@ -196,16 +217,6 @@ with st.sidebar:
             
             **Note**: An experience mismatch warning (⚠️) is shown if the resume’s experience is below the job’s requirement, even if skills match.
         """)
-
-# Introduction
-st.markdown("""
-    <div style='border: 2px solid #007BFF; background-color: #F5F6F5; padding: 20px; margin: 10px auto; border-radius: 8px; max-width: 800px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);'>
-        <h1 style='text-align: center; color: #007BFF; font-size: 36px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);'>💻 Resume Screening Assistant for Data/Tech</h1>
-        <p style='text-align: center; color: #007BFF;'>
-            Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
-        </p>
-    </div>
-""", unsafe_allow_html=True)
 
 # Input form
 st.markdown("### 📝 Enter Resumes")
