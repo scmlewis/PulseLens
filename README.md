@@ -1,5 +1,5 @@
 ---
-title: StreamlitDemo
+title: Resume Screening Assistant for Data/Tech
 emoji: 🚀
 colorFrom: red
 colorTo: green
