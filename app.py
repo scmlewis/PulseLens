@@ -1,5 +1,5 @@
 # app.py
-# Enhanced Streamlit Application for Resume Screening with Multiple Resumes
+# Enhanced Streamlit Application for Resume Screening with Multiple Resumes (Group36, ISOM5240 Topic 18)
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -54,6 +54,18 @@ def load_models():
 
 bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = load_models()
 
+# Skills list
+skills_list = [
+    'python', 'sql', 'pandas', 'java', 'c++', 'machine learning', 'tableau',
+    'r', 'javascript', 'scala', 'go', 'ruby',
+    'tensorflow', 'pytorch', 'scikit-learn', 'keras', 'deep learning', 'nlp', 'computer vision',
+    'aws', 'azure', 'gcp', 'docker', 'kubernetes',
+    'spark', 'hadoop', 'kafka', 'airflow',
+    'power bi', 'matplotlib', 'seaborn', 'plotly', 'ggplot',
+    'mysql', 'postgresql', 'mongodb', 'redis',
+    'git', 'linux', 'api', 'rest'
+]
+
 # Helper functions
 def normalize_text(text):
     text = text.lower()
@@ -75,10 +87,10 @@ def check_experience_mismatch(resume, job_description):
 def validate_input(text, is_resume=True):
     if not text.strip() or len(text.strip()) < 10:
         return "Input is too short (minimum 10 characters)."
-    if not re.search(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau|r|javascript|scala|go|ruby|tensorflow|pytorch|scikit-learn|keras|deep\s*learning|nlp|computer\s*vision|aws|azure|gcp|docker|kubernetes|spark|hadoop|kafka|airflow|power\s*bi|matplotlib|seaborn|plotly|ggplot|mysql|postgresql|mongodb|redis|git|linux|api|rest)\b', text.lower()):
+    if not re.search(r'\b(' + '|'.join(re.escape(skill) for skill in skills_list) + r')\b', text.lower()):
         return "Please include at least one data/tech skill (e.g., python, sql)."
     if is_resume and not re.search(r'\d+\s*years|senior', text.lower()):
-        return "Please include experience (e.g., '4 years experience' or 'senior')."
+        return "Please include experience (e.g., '3 years experience' or 'senior')."
     return None
 
 def classify_and_summarize_batch(resumes, job_description):
@@ -109,7 +121,8 @@ def classify_and_summarize_batch(resumes, job_description):
             suitability = "Uncertain"
             warning = exp_warning if not warning else f"{warning}; {exp_warning}"
         
-        prompt = f"summarize: {normalize_text(resume)}"
+        prompt = re.sub(r'\b[Cc]\+\+\b', 'c++', resume)
+        prompt = f"summarize: {normalize_text(prompt)}"
         inputs = t5_tokenizer(prompt, return_tensors='pt', padding=True, truncation=True, max_length=128).to(device)
         
         with torch.no_grad():
@@ -125,7 +138,7 @@ def classify_and_summarize_batch(resumes, job_description):
         
         summary = t5_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
         summary = re.sub(r'\s+', ' ', summary).strip()
-        skills = re.findall(r'\b(python|sql|pandas|java|c\+\+|machine\s*learning|tableau|r|javascript|scala|go|ruby|tensorflow|pytorch|scikit-learn|keras|deep\s*learning|nlp|computer\s*vision|aws|azure|gcp|docker|kubernetes|spark|hadoop|kafka|airflow|power\s*bi|matplotlib|seaborn|plotly|ggplot|mysql|postgresql|mongodb|redis|git|linux|api|rest)\b', prompt.lower())
+        skills = [skill for skill in skills_list if re.search(rf'\b{re.escape(skill)}\b', prompt.lower())]
         exp_match = re.search(r'\d+\s*years|senior', resume.lower())
         if skills and exp_match:
             summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
@@ -142,17 +155,7 @@ def classify_and_summarize_batch(resumes, job_description):
     return results
 
 def generate_skill_pie_chart(resumes):
-    skills = [
-        'python', 'sql', 'pandas', 'java', 'c++', 'machine learning', 'tableau',
-        'r', 'javascript', 'scala', 'go', 'ruby',
-        'tensorflow', 'pytorch', 'scikit-learn', 'keras', 'deep learning', 'nlp', 'computer vision',
-        'aws', 'azure', 'gcp', 'docker', 'kubernetes',
-        'spark', 'hadoop', 'kafka', 'airflow',
-        'power bi', 'matplotlib', 'seaborn', 'plotly', 'ggplot',
-        'mysql', 'postgresql', 'mongodb', 'redis',
-        'git', 'linux', 'api', 'rest'
-    ]
-    skill_counts = {skill: 0 for skill in skills}
+    skill_counts = {skill: 0 for skill in skills_list}
     total_resumes = len([r for r in resumes if r.strip()])
     
     if total_resumes == 0:
@@ -161,19 +164,19 @@ def generate_skill_pie_chart(resumes):
     for resume in resumes:
         if resume.strip():
             resume_lower = resume.lower()
-            for skill in skills:
+            for skill in skills_list:
                 if re.search(rf'\b{re.escape(skill)}\b', resume_lower):
                     skill_counts[skill] += 1
     
     labels = []
     sizes = []
+    total_skills = sum(skill_counts.values())
+    if total_skills == 0:
+        return None
     for skill, count in skill_counts.items():
         if count > 0:
             labels.append(skill.capitalize())
-            sizes.append((count / total_resumes) * 100)
-    
-    if not sizes:
-        return None
+            sizes.append((count / total_skills) * 100)
     
     fig, ax = plt.subplots(figsize=(6, 4))
     colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
@@ -205,7 +208,7 @@ with st.sidebar:
 
             **Guidelines**:
             - Use clear, comma-separated lists for skills (e.g., "python, sql, aws").
-            - Include experience in years (e.g., "4 years experience") or as "senior" for senior-level roles.
+            - Include experience in years (e.g., "3 years experience") or as "senior" for senior-level roles.
             - Focus on data science and tech skills, as the app summarizes only these (e.g., python, tensorflow, docker).
         """)
     with st.expander("ℹ️ Classification Criteria", expanded=True):
@@ -236,7 +239,13 @@ if 'valid_resumes' not in st.session_state:
 
 # Resume inputs
 for i in range(len(st.session_state.resumes)):
-    st.session_state.resumes[i] = st.text_area(f"Resume {i+1}", value=st.session_state.resumes[i], height=100, key=f"resume_{i}")
+    st.session_state.resumes[i] = st.text_area(
+        f"Resume {i+1}",
+        value=st.session_state.resumes[i],
+        height=100,
+        key=f"resume_{i}",
+        placeholder="e.g., Expert in python, sql, 3 years experience"
+    )
     # Real-time validation for resumes
     validation_error = validate_input(st.session_state.resumes[i], is_resume=True)
     if validation_error and st.session_state.resumes[i].strip():
@@ -255,7 +264,13 @@ with col_remove:
 
 # Job description input
 st.markdown("### 📋 Enter Job Description")
-job_description = st.text_area("Job Description", value=st.session_state.input_job_description, height=100, key="job_description")
+job_description = st.text_area(
+    "Job Description",
+    value=st.session_state.input_job_description,
+    height=100,
+    key="job_description",
+    placeholder="e.g., Data scientist requires python, sql, 3 years+"
+)
 # Real-time validation for job description
 validation_error = validate_input(job_description, is_resume=False)
 if validation_error and job_description.strip():
