@@ -37,23 +37,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize models
-@st.cache_resource
-def load_models():
-    bert_model_path = 'scmlewis/bert-finetuned-isom5240'
-    bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
-    bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
-    t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
-    t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
-    device = torch.device('cpu')  # CPU for lightweight deployment
-    bert_model.to(device)
-    t5_model.to(device)
-    bert_model.eval()
-    t5_model.eval()
-    return bert_tokenizer, bert_model, t5_tokenizer, t5_model, device
-
-bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = load_models()
-
 # Skills list (79 skills from Application_Demo.ipynb)
 skills_list = [
     'python', 'sql', 'c++', 'java', 'tableau', 'machine learning', 'data analysis',
@@ -110,10 +93,26 @@ def validate_input(text, is_resume=True):
         return "Please include experience (e.g., '3 years experience' or 'senior')."
     return None
 
+@st.cache_resource
+def load_models():
+    bert_model_path = 'scmlewis/bert-finetuned-isom5240'
+    bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
+    bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
+    t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
+    device = torch.device('cpu')  # CPU for lightweight deployment
+    bert_model.to(device)
+    t5_model.to(device)
+    bert_model.eval()
+    t5_model.eval()
+    return bert_tokenizer, bert_model, t5_tokenizer, t5_model, device
+
+@st.cache_data
 def classify_and_summarize_batch(resumes, job_description):
+    bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
     job_description = normalize_text(job_description)
     inputs = [f"resume: {normalize_text(resume)} [sep] job: {job_description}" for resume in resumes]
-    tokenized = bert_tokenizer(inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
+    tokenized = bert_tokenizer(inputs, return_tensors='pt', padding=True, truncation=True, max_length=64)
     tokenized = {k: v.to(device) for k, v in tokenized.items()}
     
     with torch.no_grad():
@@ -167,16 +166,16 @@ def classify_and_summarize_batch(resumes, job_description):
         prompt = re.sub(r'\b[Cc]\+\+\b', 'c++', resume)
         prompt_normalized = normalize_text(prompt)
         prompt = f"summarize: {prompt_normalized}"
-        inputs = t5_tokenizer(prompt, return_tensors='pt', padding=True, truncation=True, max_length=128).to(device)
+        inputs = t5_tokenizer(prompt, return_tensors='pt', padding=True, truncation=True, max_length=64).to(device)
         
         with torch.no_grad():
             outputs = t5_model.generate(
                 inputs['input_ids'],
                 max_length=30,
                 min_length=8,
-                num_beams=4,
+                num_beams=2,  # Reduced for faster inference
                 no_repeat_ngram_size=3,
-                length_penalty=3.0,
+                length_penalty=2.0,  # Adjusted for faster inference
                 early_stopping=True
             )
         
@@ -198,6 +197,7 @@ def classify_and_summarize_batch(resumes, job_description):
     
     return results
 
+@st.cache_data
 def generate_skill_pie_chart(resumes):
     skill_counts = {}
     total_resumes = len([r for r in resumes if r.strip()])
@@ -224,8 +224,7 @@ def generate_skill_pie_chart(resumes):
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
     ax.axis('equal')
     plt.title("Skill Frequency Across Resumes", fontsize=12, color='#007BFF', pad=10)
-    st.pyplot(fig)
-    plt.close(fig)  # Ensure figure is closed to prevent rendering issues
+    return fig
 
 def main():
     """Main function to run the Streamlit app for resume screening."""
@@ -234,7 +233,7 @@ def main():
         st.markdown("""
             <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
             <p style='text-align: center; font-size: 16px; margin-top: 0;'>
-                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions.
+                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions. <br><br><strong>Note:</strong> Performance may vary due to server load on free CPU instances.
             </p>
         """, unsafe_allow_html=True)
         
@@ -283,8 +282,10 @@ def main():
         st.session_state.results = []
     if 'valid_resumes' not in st.session_state:
         st.session_state.valid_resumes = []
+    if 'models' not in st.session_state:
+        st.session_state.models = None
 
-    # Resume inputs
+    # Resume inputs with early validation
     for i in range(len(st.session_state.resumes)):
         st.session_state.resumes[i] = st.text_area(
             f"Resume {i+1}",
@@ -336,28 +337,45 @@ def main():
         st.session_state.valid_resumes = []
         st.rerun()
 
-    # Handle analysis
+    # Handle analysis with early validation and lazy model loading
     if analyze_clicked:
-        valid_resumes = [resume for resume in st.session_state.resumes if resume.strip()]
+        # Early validation of inputs
+        valid_resumes = []
+        for i, resume in enumerate(st.session_state.resumes):
+            validation_error = validate_input(resume, is_resume=True)
+            if not validation_error and resume.strip():
+                valid_resumes.append(resume)
+            elif validation_error and resume.strip():
+                st.warning(f"Resume {i+1}: {validation_error}")
+
+        validation_error = validate_input(job_description, is_resume=False)
+        if validation_error and job_description.strip():
+            st.warning(f"Job Description: {validation_error}")
+
         if valid_resumes and job_description.strip():
+            # Load models only when needed
+            if st.session_state.models is None:
+                with st.spinner("Loading models, please wait..."):
+                    st.session_state.models = load_models()
+
             st.session_state.results = []
             st.session_state.valid_resumes = valid_resumes
             total_steps = len(valid_resumes)
-            progress_bar = st.progress(0)
-            status_text = st.empty()
             
-            status_text.text("Classifying resumes (batch processing)...")
-            results = classify_and_summarize_batch(valid_resumes, job_description)
-            progress_bar.progress(1.0)
-            
-            st.session_state.results = results
-            
-            status_text.empty()
-            progress_bar.empty()
-            st.success("Analysis completed! 🎉")
-        
+            with st.spinner("Analyzing resumes..."):
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                status_text.text("Classifying resumes (batch processing)...")
+                results = classify_and_summarize_batch(valid_resumes, job_description)
+                progress_bar.progress(1.0)
+                
+                st.session_state.results = results
+                
+                status_text.empty()
+                progress_bar.empty()
+                st.success("Analysis completed! 🎉")
         else:
-            st.error("Please enter at least one resume and a job description.")
+            st.error("Please enter at least one valid resume and a job description.")
 
     # Display results
     if st.session_state.results:
@@ -373,7 +391,15 @@ def main():
         st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
         
         with st.expander("📈 Skill Frequency Across Resumes", expanded=False):
-            generate_skill_pie_chart(st.session_state.valid_resumes)
+            if st.session_state.valid_resumes:
+                fig = generate_skill_pie_chart(st.session_state.valid_resumes)
+                if fig:
+                    st.pyplot(fig)
+                    plt.close(fig)
+                else:
+                    st.write("No recognized data/tech skills found in the resumes.")
+            else:
+                st.write("No valid resumes to analyze.")
 
 if __name__ == "__main__":
     # When this module is run directly, call the main function.
