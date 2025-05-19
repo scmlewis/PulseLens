@@ -53,7 +53,7 @@ skills_list = [
     'databricks', 'synapse', 'delta lake', 'streamlit', 'fastapi', 'graphql', 'mlflow', 'kedro'
 ]
 
-# Precompile regex for skills matching
+# Precompile regex for skills matching (optimized for single pass)
 skills_pattern = re.compile(r'\b(' + '|'.join(re.escape(skill) for skill in skills_list) + r')\b', re.IGNORECASE)
 
 # Helper functions
@@ -65,7 +65,8 @@ def normalize_text(text):
 
 def check_experience_mismatch(resume, job_description):
     resume_match = re.search(r'(\d+)\s*years?|senior', resume.lower())
-    job_match = re.search(r'(\d+)\s*years?\+|senior\+', job_description.lower())
+    # Allow optional words like "experience" between "years" and "+"
+    job_match = re.search(r'(\d+)\s*years?(?:\s+\w+)*\+|senior\+', job_description.lower())
     if resume_match and job_match:
         resume_years = resume_match.group(0)
         job_years = job_match.group(0)
@@ -108,15 +109,37 @@ def load_models():
     return bert_tokenizer, bert_model, t5_tokenizer, t5_model, device
 
 @st.cache_data
-def classify_and_summarize_batch(resumes, job_description):
-    bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
-    job_description = normalize_text(job_description)
-    inputs = [f"resume: {normalize_text(resume)} [sep] job: {job_description}" for resume in resumes]
-    tokenized = bert_tokenizer(inputs, return_tensors='pt', padding=True, truncation=True, max_length=64)
-    tokenized = {k: v.to(device) for k, v in tokenized.items()}
+def tokenize_inputs(resumes, job_description, _bert_tokenizer, _t5_tokenizer):
+    """Precompute tokenized inputs for BERT and T5."""
+    job_description_norm = normalize_text(job_description)
+    bert_inputs = [f"resume: {normalize_text(resume)} [sep] job: {job_description_norm}" for resume in resumes]
+    bert_tokenized = _bert_tokenizer(bert_inputs, return_tensors='pt', padding=True, truncation=True, max_length=64)
     
+    t5_inputs = []
+    for resume in resumes:
+        prompt = re.sub(r'\b[Cc]\+\+\b', 'c++', resume)
+        prompt_normalized = normalize_text(prompt)
+        t5_inputs.append(f"summarize: {prompt_normalized}")
+    t5_tokenized = _t5_tokenizer(t5_inputs, return_tensors='pt', padding=True, truncation=True, max_length=64)
+    
+    return bert_tokenized, t5_inputs, t5_tokenized
+
+@st.cache_data
+def extract_skills(text):
+    """Extract skills from text in a single pass."""
+    text_normalized = normalize_text(text)
+    text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
+    found_skills = skills_pattern.findall(text_normalized)
+    return set(found_skills)
+
+@st.cache_data
+def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_inputs, _t5_tokenized, _job_skills_set):
+    bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
+    bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
+    
+    # BERT inference (batched)
     with torch.no_grad():
-        outputs = bert_model(**tokenized)
+        outputs = bert_model(**bert_tokenized)
     
     logits = outputs.logits
     probabilities = torch.softmax(logits, dim=1).cpu().numpy()
@@ -124,64 +147,50 @@ def classify_and_summarize_batch(resumes, job_description):
     
     confidence_threshold = 0.85
     results = []
-    for i, (resume, prob, pred) in enumerate(zip(resumes, probabilities, predictions)):
-        # Compute skill overlap (simplified keyword matching)
-        job_normalized = job_description.lower()
-        job_normalized = re.sub(r'[,_-]', ' ', job_normalized)
-        resume_normalized = resume.lower()
-        resume_normalized = re.sub(r'[,_-]', ' ', resume_normalized)
-        # Extract skills as whole phrases, not split words
-        job_skills = []
-        resume_skills = []
-        for skill in skills_list:
-            pattern = r'\b' + re.escape(skill) + r'\b'
-            if re.search(pattern, job_normalized):
-                job_skills.append(skill)
-            if re.search(pattern, resume_normalized):
-                resume_skills.append(skill)
-        job_skills_set = set(job_skills)
-        resume_skills_set = set(resume_skills)
-        skill_overlap = len(job_skills_set.intersection(resume_skills_set)) / len(job_skills_set) if job_skills_set else 0
+    
+    # Batch T5 inference for all resumes
+    t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
+    with torch.no_grad():
+        t5_outputs = t5_model.generate(
+            t5_tokenized['input_ids'],
+            attention_mask=t5_tokenized['attention_mask'],
+            max_length=30,
+            min_length=8,
+            num_beams=2,
+            no_repeat_ngram_size=3,
+            length_penalty=2.0,
+            early_stopping=True
+        )
+    summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
+    summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
+    
+    for i, (resume, prob, pred, summary, t5_input) in enumerate(zip(resumes, probabilities, predictions, summaries, _t5_inputs)):
+        # Compute skill overlap
+        resume_skills_set = extract_skills(resume)
+        skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
 
-        # Step 1: Check model confidence
-        if prob[pred] < confidence_threshold:
-            suitability = "Uncertain"
-            warning = f"Low confidence: {prob[pred]:.4f}"
+        # Step 1: Check skill irrelevance
+        if skill_overlap < 0.4:
+            suitability = "Irrelevant"
+            warning = "Skills are irrelevant"
         else:
-            # Step 2: Check skill irrelevance
-            if skill_overlap < 0.4:  # Very low skill overlap indicates clear irrelevance
-                suitability = "Irrelevant"
-                warning = "Skills are irrelevant"
+            # Step 2: Check experience mismatch (takes precedence)
+            exp_warning = check_experience_mismatch(resume, job_description)
+            if exp_warning:
+                suitability = "Uncertain"
+                warning = exp_warning
             else:
-                # Step 3: Determine initial suitability based on skill overlap
-                suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
-                warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
-
-                # Step 4: Check experience mismatch and override suitability if necessary
-                exp_warning = check_experience_mismatch(resume, job_description)
-                if exp_warning:
+                # Step 3: Check model confidence
+                if prob[pred] < confidence_threshold:
                     suitability = "Uncertain"
-                    warning = exp_warning
+                    warning = f"Low confidence: {prob[pred]:.4f}"
+                else:
+                    # Step 4: Determine suitability based on skill overlap
+                    suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
+                    warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
         
-        prompt = re.sub(r'\b[Cc]\+\+\b', 'c++', resume)
-        prompt_normalized = normalize_text(prompt)
-        prompt = f"summarize: {prompt_normalized}"
-        inputs = t5_tokenizer(prompt, return_tensors='pt', padding=True, truncation=True, max_length=64).to(device)
-        
-        with torch.no_grad():
-            outputs = t5_model.generate(
-                inputs['input_ids'],
-                max_length=30,
-                min_length=8,
-                num_beams=2,  # Reduced for faster inference
-                no_repeat_ngram_size=3,
-                length_penalty=2.0,  # Adjusted for faster inference
-                early_stopping=True
-            )
-        
-        summary = t5_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-        summary = re.sub(r'\s+', ' ', summary).strip()
-        skills = skills_pattern.findall(prompt_normalized)
+        # Post-process T5 summary for all resumes (Relevant, Uncertain, or Irrelevant)
+        skills = list(set(skills_pattern.findall(t5_input)))  # Deduplicate skills
         exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
         if skills and exp_match:
             summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
@@ -365,8 +374,17 @@ def main():
             with st.spinner("Analyzing resumes..."):
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                status_text.text("Classifying resumes (batch processing)...")
-                results = classify_and_summarize_batch(valid_resumes, job_description)
+                status_text.text("Preparing inputs...")
+                
+                # Retrieve tokenizers from st.session_state.models
+                bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
+                
+                # Precompute tokenized inputs and job skills
+                bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs(valid_resumes, job_description, bert_tokenizer, t5_tokenizer)
+                job_skills_set = extract_skills(job_description)
+                
+                status_text.text("Classifying and summarizing resumes...")
+                results = classify_and_summarize_batch(valid_resumes, job_description, bert_tokenized, t5_inputs, t5_tokenized, job_skills_set)
                 progress_bar.progress(1.0)
                 
                 st.session_state.results = results
