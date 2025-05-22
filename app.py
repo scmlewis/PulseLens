@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
 
-# Apply custom CSS for a professional theme inspired by Databricks
+# Apply simplified custom CSS for a professional theme inspired by Databricks
 st.markdown("""
     <style>
     /* General App Styling */
@@ -29,12 +29,10 @@ st.markdown("""
         text-align: center;
         border-radius: 8px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .header-banner h1 {
         margin: 0;
         font-size: 32px;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
     }
 
     /* Sidebar Styling */
@@ -53,7 +51,6 @@ st.markdown("""
     .stSidebar h1 {
         color: #FF3621; /* Databricks orange */
         font-size: 32px;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
         margin-bottom: 10px;
     }
     .stSidebar p {
@@ -66,7 +63,6 @@ st.markdown("""
         font-size: 26px !important;
         font-weight: bold !important;
         color: #FF3621 !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1) !important;
         white-space: nowrap !important;
     }
     .st-expander-content p {
@@ -102,7 +98,6 @@ st.markdown("""
         padding: 10px 20px;
         font-size: 16px;
         border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .stButton > button:hover {
         background-color: #E0301E; /* Darker orange on hover */
@@ -113,7 +108,6 @@ st.markdown("""
         border: 1px solid #E0E0E0;
         border-radius: 5px;
         background-color: #FFFFFF;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .stDataFrame table th {
         background-color: #FF3621;
@@ -127,7 +121,6 @@ st.markdown("""
     /* Alerts */
     .stAlert {
         border-radius: 5px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     /* Pie Chart Section */
@@ -135,7 +128,6 @@ st.markdown("""
         background-color: #FFFFFF;
         border-radius: 5px;
         padding: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -446,14 +438,14 @@ def main():
             st.session_state.num_resumes += 1
             st.session_state.results = None  # Clear previous results
             st.session_state.pie_chart = None
-            st.experimental_rerun()
+            st.rerun()  # Updated to st.rerun()
     with col2:
         if st.button("Remove Resume") and num_resumes > 1:
             st.session_state.num_resumes -= 1
             st.session_state.resumes[num_resumes] = ""  # Clear the removed field
             st.session_state.results = None  # Clear previous results
             st.session_state.pie_chart = None
-            st.experimental_rerun()
+            st.rerun()  # Updated to st.rerun()
     with col3:
         if st.button("Reset"):
             st.session_state.num_resumes = 1
@@ -461,7 +453,7 @@ def main():
             st.session_state.job_description = ""
             st.session_state.results = None
             st.session_state.pie_chart = None
-            st.experimental_rerun()
+            st.rerun()  # Updated to st.rerun()
 
     # Job description input
     st.subheader("Job Description")
