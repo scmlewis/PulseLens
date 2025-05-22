@@ -1,5 +1,5 @@
 # app.py
-# Optimized Streamlit Application for Resume Screening with Multiple Resumes and Professional Theme
+# Optimized Streamlit Application for Resume Screening with Multiple Resumes, Professional Theme, and Dark Mode Support
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -9,7 +9,7 @@ import re
 import io
 import matplotlib.pyplot as plt
 import time
-import pandas as pd  # Added missing import
+import pandas as pd
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
@@ -32,20 +32,85 @@ skills_pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, [
 
 normalize_pattern = re.compile(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects')
 
-# Apply simplified custom CSS for a professional theme inspired by Databricks
+# Apply custom CSS with dark mode support and background image
 st.markdown("""
     <style>
+    /* Define CSS variables for light and dark themes */
+    :root {
+        --background-color: #F5F5F5;
+        --sidebar-bg: #FFFFFF;
+        --text-color: #4A4A4A;
+        --header-color: #FF3621;
+        --element-bg: #FFFFFF;
+        --element-border: #E0E0E0;
+        --element-text: #4A4A4A;
+        --element-header-bg: #FF3621;
+        --element-header-text: #FFFFFF;
+    }
+
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --background-color: #1E1E1E;
+            --sidebar-bg: #2D2D2D;
+            --text-color: #D3D3D3;
+            --header-color: #FF3621;
+            --element-bg: #333333;
+            --element-border: #444444;
+            --element-text: #D3D3D3;
+            --element-header-bg: #FF3621;
+            --element-header-text: #FFFFFF;
+        }
+    }
+
+    /* Allow manual override with a class */
+    [data-theme="dark"] {
+        --background-color: #1E1E1E;
+        --sidebar-bg: #2D2D2D;
+        --text-color: #D3D3D3;
+        --header-color: #FF3621;
+        --element-bg: #333333;
+        --element-border: #444444;
+        --element-text: #D3D3D3;
+        --element-header-bg: #FF3621;
+        --element-header-text: #FFFFFF;
+    }
+
     /* General App Styling */
     .stApp {
-        background-color: #F5F5F5; /* Light gray background */
+        background-color: var(--background-color);
         font-family: 'Arial', sans-serif;
+        position: relative;
+        background-image: url('https://images.unsplash.com/photo-1516321313936-161e50f54a4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80'); /* Tech-themed background */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+
+    /* Dim background image with overlay */
+    .stApp::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3); /* Dim overlay */
+        z-index: -1;
+    }
+
+    /* Ensure content is readable */
+    .stApp > div {
+        position: relative;
+        z-index: 1;
     }
 
     /* Sidebar Styling */
     .css-1d391kg {  /* Sidebar */
         width: 350px !important;
-        background-color: #FFFFFF;
-        border-right: 1px solid #E0E0E0;
+        background-color: var(--sidebar-bg);
+        border-right: 1px solid var(--element-border);
     }
     [data-testid="stSidebarCollapseButton"] {  /* Hide toggle button */
         display: none !important;
@@ -55,12 +120,12 @@ st.markdown("""
         visibility: visible !important;
     }
     .stSidebar h1 {
-        color: #FF3621; /* Databricks orange */
+        color: var(--header-color); /* Databricks orange */
         font-size: 32px;
         margin-bottom: 10px;
     }
     .stSidebar p {
-        color: #4A4A4A; /* Databricks gray */
+        color: var(--text-color);
         font-size: 16px;
     }
 
@@ -68,37 +133,42 @@ st.markdown("""
     [data-testid="stExpander"] summary {
         font-size: 26px !important;
         font-weight: bold !important;
-        color: #FF3621 !important;
+        color: var(--header-color) !important;
         white-space: nowrap !important;
     }
     .st-expander-content p {
         font-size: 12px !important;
-        color: #4A4A4A !important;
+        color: var(--text-color) !important;
     }
 
     /* Main Content Styling */
     h2, h3 {
-        color: #FF3621; /* Databricks orange */
+        color: var(--header-color); /* Databricks orange */
         font-weight: bold;
         margin-top: 20px;
     }
 
     /* Input Fields */
     .stTextInput > label {
-        color: #4A4A4A; /* Databricks gray */
+        color: var(--text-color);
         font-weight: bold;
         font-size: 16px;
     }
     .stTextInput > div > input {
-        border: 1px solid #E0E0E0;
+        border: 1px solid var(--element-border);
         border-radius: 5px;
         padding: 8px;
         font-size: 14px;
+        background-color: var(--element-bg);
+        color: var(--element-text);
+    }
+    .stTextInput > div > input::placeholder {
+        color: #888888;
     }
 
     /* Buttons */
     .stButton > button {
-        background-color: #FF3621; /* Databricks orange */
+        background-color: var(--header-color); /* Databricks orange */
         color: #FFFFFF;
         border-radius: 5px;
         padding: 10px 20px;
@@ -111,17 +181,17 @@ st.markdown("""
 
     /* Results Table */
     .stDataFrame {
-        border: 1px solid #E0E0E0;
+        border: 1px solid var(--element-border);
         border-radius: 5px;
-        background-color: #FFFFFF;
+        background-color: var(--element-bg);
     }
     .stDataFrame table th {
-        background-color: #FF3621;
-        color: #FFFFFF;
+        background-color: var(--element-header-bg);
+        color: var(--element-header-text);
         font-weight: bold;
     }
     .stDataFrame table td {
-        color: #4A4A4A;
+        color: var(--element-text);
     }
 
     /* Alerts */
@@ -131,11 +201,45 @@ st.markdown("""
 
     /* Pie Chart Section */
     .stPlotlyChart, .stImage {
-        background-color: #FFFFFF;
+        background-color: var(--element-bg);
         border-radius: 5px;
         padding: 10px;
     }
+
+    /* Theme Toggle Button */
+    .theme-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+    }
     </style>
+""", unsafe_allow_html=True)
+
+# Theme toggle button
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'light'
+
+def toggle_theme():
+    if st.session_state.theme == 'light':
+        st.session_state.theme = 'dark'
+    else:
+        st.session_state.theme = 'light'
+    st.rerun()
+
+st.markdown(f"""
+    <div class="theme-toggle">
+        <button onclick="document.body.setAttribute('data-theme', '{st.session_state.theme}');">Toggle Theme</button>
+    </div>
+""", unsafe_allow_html=True)
+if st.button("Toggle Theme", key="theme_toggle"):
+    toggle_theme()
+
+# Apply theme to body
+st.markdown(f"""
+    <script>
+        document.body.setAttribute('data-theme', '{st.session_state.theme}');
+    </script>
 """, unsafe_allow_html=True)
 
 # Helper functions
@@ -330,7 +434,18 @@ def render_sidebar():
             </p>
         """, unsafe_allow_html=True)
 
-        with st.expander("How to Use the App"):
+        # Persist expander states
+        if 'expander1' not in st.session_state:
+            st.session_state.expander1 = True
+        if 'expander2' not in st.session_state:
+            st.session_state.expander2 = False
+        if 'expander3' not in st.session_state:
+            st.session_state.expander3 = False
+        if 'expander4' not in st.session_state:
+            st.session_state.expander4 = False
+
+        with st.expander("How to Use the App", expanded=st.session_state.expander1):
+            st.session_state.expander1 = True
             st.markdown("""
                 - Enter up to 5 candidate resumes in the text boxes below, listing data/tech skills and experience (e.g., "Expert in python, databricks, 6 years experience").
                 - Enter the job description, specifying required skills and experience (e.g., "Data engineer requires python, spark, 5 years+").
@@ -341,7 +456,8 @@ def render_sidebar():
                 - View the skill frequency pie chart to see the distribution of skills across resumes.
             """)
 
-        with st.expander("Example Test Cases"):
+        with st.expander("Example Test Cases", expanded=st.session_state.expander2):
+            st.session_state.expander2 = True
             st.markdown("""
                 - **Test Case 1**:
                     - Resume 1: "Expert in python, machine learning, tableau, 4 years experience"
@@ -355,7 +471,8 @@ def render_sidebar():
                     - Job Description: "Data engineer requires python, spark, 5 years+"
             """)
 
-        with st.expander("Guidelines"):
+        with st.expander("Guidelines", expanded=st.session_state.expander3):
+            st.session_state.expander3 = True
             st.markdown("""
                 - Use comma-separated skills from a comprehensive list including python, sql, databricks, etc. (79 skills supported, see Project Report for full list).
                 - Include experience in years (e.g., "3 years experience" or "1 year experience") or as "senior".
@@ -363,7 +480,8 @@ def render_sidebar():
                 - Resumes with only irrelevant skills (e.g., sales, marketing) will be classified as "Irrelevant".
             """)
 
-        with st.expander("Classification Criteria"):
+        with st.expander("Classification Criteria", expanded=st.session_state.expander4):
+            st.session_state.expander4 = True
             st.markdown("""
                 Resumes are classified based on:
                 - **Skill Overlap**: The resume's data/tech skills are compared to the job's requirements. A skill overlap below 40% results in an "Irrelevant" classification.
@@ -387,11 +505,11 @@ def main():
     if 'models' not in st.session_state:
         st.session_state.models = load_models()
     if 'resumes' not in st.session_state:
-        st.session_state.resumes = [""] * 5  # Default to 5 empty resume slots
+        st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience"] + [""] * 4  # Prefill first resume with Test Case 1
     if 'num_resumes' not in st.session_state:
-        st.session_state.num_resumes = 1  # Start with 1 resume field
+        st.session_state.num_resumes = 3  # Default to 3 textboxes
     if 'job_description' not in st.session_state:
-        st.session_state.job_description = ""
+        st.session_state.job_description = "Data scientist requires python, machine learning, 3 years+"  # Prefill with Test Case 1
     if 'results' not in st.session_state:
         st.session_state.results = None
     if 'pie_chart' not in st.session_state:
@@ -402,7 +520,8 @@ def main():
         st.subheader("Candidate Resumes")
         num_resumes = st.session_state.num_resumes
         for i in range(num_resumes):
-            st.session_state.resumes[i] = st.text_input(f"Resume {i+1}", value=st.session_state.resumes[i], key=f"resume_{i}")
+            placeholder = "e.g., 'Expert in python, databricks, 6 years experience'" if i == 0 else "Enter candidate resume (optional)"
+            st.session_state.resumes[i] = st.text_input(f"Resume {i+1}", value=st.session_state.resumes[i], key=f"resume_{i}", placeholder=placeholder)
 
     # Buttons to add/remove resume fields
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -421,9 +540,9 @@ def main():
             st.rerun()
     with col3:
         if st.button("Reset"):
-            st.session_state.num_resumes = 1
-            st.session_state.resumes = [""] * 5
-            st.session_state.job_description = ""
+            st.session_state.num_resumes = 3
+            st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience"] + [""] * 4
+            st.session_state.job_description = "Data scientist requires python, machine learning, 3 years+"
             st.session_state.results = None
             st.session_state.pie_chart = None
             st.rerun()
@@ -431,7 +550,11 @@ def main():
     # Job description input
     with st.container():
         st.subheader("Job Description")
-        st.session_state.job_description = st.text_input("Enter the job description (e.g., 'Data engineer requires python, spark, 5 years+')", value=st.session_state.job_description)
+        st.session_state.job_description = st.text_input(
+            "Enter the job description",
+            value=st.session_state.job_description,
+            placeholder="e.g., 'Data engineer requires python, spark, 5 years+'"
+        )
 
     # Analyze button
     if st.button("Analyze"):
