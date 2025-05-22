@@ -242,10 +242,14 @@ def validate_input(text, is_resume=True):
 def load_models():
     start_time = time.time()
     bert_model_path = 'scmlewis/bert-finetuned-isom5240'
-    bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
-    bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
-    t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
-    t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
+    try:
+        bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
+        bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
+        t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
+        t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
+    except Exception as e:
+        st.error(f"Error loading models: {str(e)}")
+        raise e
     device = torch.device('cpu')  # CPU for lightweight deployment
     bert_model.to(device)
     t5_model.to(device)
@@ -290,100 +294,72 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
     _, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
     start_time = time.time()
     
-    bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
-    with torch.no_grad():
-        outputs = bert_model(**bert_tokenized)
-    
-    logits = outputs.logits
-    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
-    predictions = np.argmax(probabilities, axis=1)
-    
-    confidence_threshold = 0.85
-    results = []
-    
-    t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
-    with torch.no_grad():
-        t5_outputs = t5_model.generate(
-            t5_tokenized['input_ids'],
-            attention_mask=t5_tokenized['attention_mask'],
-            max_length=30,
-            min_length=8,
-            num_beams=4,
-            no_repeat_ngram_size=3,
-            length_penalty=3.0,
-            early_stopping=True
-        )
-    summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
-    summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
-    
-    prob, pred, summary, t5_input = probabilities[0], predictions[0], summaries[0], _t5_input
-    resume_skills_set = extract_skills(resume)
-    skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
+    try:
+        bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
+        with torch.no_grad():
+            outputs = bert_model(**bert_tokenized)
+        
+        logits = outputs.logits
+        probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+        predictions = np.argmax(probabilities, axis=1)
+        
+        confidence_threshold = 0.85
+        results = []
+        
+        t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
+        with torch.no_grad():
+            t5_outputs = t5_model.generate(
+                t5_tokenized['input_ids'],
+                attention_mask=t5_tokenized['attention_mask'],
+                max_length=30,
+                min_length=8,
+                num_beams=4,
+                no_repeat_ngram_size=3,
+                length_penalty=3.0,
+                early_stopping=True
+            )
+        summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
+        summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
+        
+        prob, pred, summary, t5_input = probabilities[0], predictions[0], summaries[0], _t5_input
+        resume_skills_set = extract_skills(resume)
+        skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
 
-    if prob[pred] < confidence_threshold:
-        suitability = "Uncertain"
-        warning = f"Low confidence: {prob[pred]:.4f}"
-    else:
-        if skill_overlap < 0.4:
-            suitability = "Irrelevant"
-            warning = "Skills are irrelevant"
+        if prob[pred] < confidence_threshold:
+            suitability = "Uncertain"
+            warning = f"Low confidence: {prob[pred]:.4f}"
         else:
-            suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
-            warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
+            if skill_overlap < 0.4:
+                suitability = "Irrelevant"
+                warning = "Skills are irrelevant"
+            else:
+                suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
+                warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
 
-            exp_warning = check_experience_mismatch(resume, job_description)
-            if exp_warning:
-                suitability = "Uncertain"
-                warning = exp_warning
-    
-    skills = list(set(skills_pattern.findall(t5_input)))
-    exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
-    if skills and exp_match:
-        summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
-    else:
-        summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
-    
-    result = {
-        "Suitability": suitability,
-        "Data/Tech Related Skills Summary": summary,
-        "Warning": warning or "None",
-        "Inference Time": time.time() - start_time  # Log inference time for each resume
-    }
-    
-    st.session_state.classify_summarize_time = time.time() - start_time
-    return result
-
-@st.cache_data
-def generate_skill_pie_chart(resumes):
-    start_time = time.time()
-    skill_counts = {}
-    total_resumes = len([r for r in resumes if r.strip()])
-    
-    if total_resumes == 0:
-        return None
-    
-    for resume in resumes:
-        if resume.strip():
-            resume_lower = normalize_text(resume)
-            resume_lower = re.sub(r'[,_-]', ' ', resume_lower)
-            found_skills = skills_pattern.findall(resume_lower)
-            for skill in found_skills:
-                skill_counts[skill] = skill_counts.get(skill, 0) + 1
-    
-    if not skill_counts:
-        return None
-    
-    labels = list(skill_counts.keys())
-    sizes = [(count / sum(skill_counts.values())) * 100 for count in skill_counts.values()]
-    
-    fig, ax = plt.subplots(figsize=(6, 4))
-    colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
-    ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
-    ax.axis('equal')
-    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#FF3621', pad=10)
-    
-    st.session_state.pie_chart_time = time.time() - start_time
-    return fig
+                exp_warning = check_experience_mismatch(resume, job_description)
+                if exp_warning:
+                    suitability = "Uncertain"
+                    warning = exp_warning
+        
+        skills = list(set(skills_pattern.findall(t5_input)))
+        exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
+        if skills and exp_match:
+            summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
+        else:
+            summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
+        
+        result = {
+            "Suitability": suitability,
+            "Data/Tech Related Skills Summary": summary,
+            "Warning": warning or "None",
+            "Inference Time": time.time() - start_time
+        }
+        
+        st.session_state.classify_summarize_time = time.time() - start_time
+        return result
+    except Exception as e:
+        st.error(f"Error during inference for resume: {str(e)}")
+        raise e
 
 def render_sidebar():
     """Render sidebar content."""
@@ -537,16 +513,22 @@ def main():
                 st.error(f"Job Description: {validation_error}")
 
             if valid_resumes and job_description:
-                job_skills_set = extract_skills(job_description)
-                results = []
-                for i, resume in enumerate(valid_resumes):
-                    bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
-                    result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
-                    result["Resume"] = f"Resume {i+1}"
-                    results.append(result)
-                st.session_state.results = results
-                pie_chart = generate_skill_pie_chart(valid_resumes)
-                st.session_state.pie_chart = pie_chart
+                try:
+                    job_skills_set = extract_skills(job_description)
+                    results = []
+                    for i, resume in enumerate(valid_resumes):
+                        st.write(f"Processing {resume[:50]}...")  # Log progress
+                        bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
+                        result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
+                        result["Resume"] = f"Resume {i+1}"
+                        results.append(result)
+                    st.session_state.results = results
+                    pie_chart = generate_skill_pie_chart(valid_resumes)
+                    st.session_state.pie_chart = pie_chart
+                except Exception as e:
+                    st.error(f"Failed to process resumes: {str(e)}")
+                    st.session_state.results = None
+                    st.session_state.pie_chart = None
 
             st.session_state.total_analyze_time = time.time() - start_time
             # Detailed timing logs
@@ -582,6 +564,10 @@ def main():
             st.pyplot(st.session_state.pie_chart)
     elif st.session_state.results and not st.session_state.pie_chart:
         st.warning("No recognized data/tech skills found in the resumes to generate a pie chart.")
+
+    # Performance note
+    if st.session_state.total_analyze_time and st.session_state.total_analyze_time > 60:
+        st.warning("The runtime is longer than expected due to server load on Hugging Face Spaces. For a smoother experience, consider testing locally or deploying on a different platform (e.g., Streamlit Community Cloud or a personal server).")
 
 if __name__ == "__main__":
     main()
