@@ -32,52 +32,29 @@ skills_pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, [
 
 normalize_pattern = re.compile(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects')
 
+# Initialize theme state
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'light'
+
 # Apply custom CSS with dark mode support and background image
-st.markdown("""
+st.markdown(f"""
     <style>
     /* Define CSS variables for light and dark themes */
-    :root {
-        --background-color: #F5F5F5;
-        --sidebar-bg: #FFFFFF;
-        --text-color: #4A4A4A;
+    :root {{
+        --background-color: {'#F5F5F5' if st.session_state.theme == 'light' else '#1E1E1E'};
+        --sidebar-bg: {'#FFFFFF' if st.session_state.theme == 'light' else '#2D2D2D'};
+        --text-color: {'#4A4A4A' if st.session_state.theme == 'light' else '#D3D3D3'};
         --header-color: #FF3621;
-        --element-bg: #FFFFFF;
-        --element-border: #E0E0E0;
-        --element-text: #4A4A4A;
+        --element-bg: {'#FFFFFF' if st.session_state.theme == 'light' else '#333333'};
+        --element-border: {'#E0E0E0' if st.session_state.theme == 'light' else '#444444'};
+        --element-text: {'#4A4A4A' if st.session_state.theme == 'light' else '#D3D3D3'};
         --element-header-bg: #FF3621;
         --element-header-text: #FFFFFF;
-    }
-
-    /* Dark mode */
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --background-color: #1E1E1E;
-            --sidebar-bg: #2D2D2D;
-            --text-color: #D3D3D3;
-            --header-color: #FF3621;
-            --element-bg: #333333;
-            --element-border: #444444;
-            --element-text: #D3D3D3;
-            --element-header-bg: #FF3621;
-            --element-header-text: #FFFFFF;
-        }
-    }
-
-    /* Allow manual override with a class */
-    [data-theme="dark"] {
-        --background-color: #1E1E1E;
-        --sidebar-bg: #2D2D2D;
-        --text-color: #D3D3D3;
-        --header-color: #FF3621;
-        --element-bg: #333333;
-        --element-border: #444444;
-        --element-text: #D3D3D3;
-        --element-header-bg: #FF3621;
-        --element-header-text: #FFFFFF;
-    }
+        --button-hover-bg: {'#FF6347' if st.session_state.theme == 'light' else '#FF6347'};
+    }}
 
     /* General App Styling */
-    .stApp {
+    .stApp {{
         background-color: var(--background-color);
         font-family: 'Arial', sans-serif;
         position: relative;
@@ -86,10 +63,10 @@ st.markdown("""
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
-    }
+    }}
 
     /* Dim background image with overlay */
-    .stApp::before {
+    .stApp::before {{
         content: '';
         position: absolute;
         top: 0;
@@ -98,149 +75,132 @@ st.markdown("""
         height: 100%;
         background: rgba(0, 0, 0, 0.3); /* Dim overlay */
         z-index: -1;
-    }
+    }}
 
     /* Ensure content is readable */
-    .stApp > div {
+    .stApp > div {{
         position: relative;
         z-index: 1;
-    }
+    }}
 
     /* Sidebar Styling */
-    .css-1d391kg {  /* Sidebar */
+    [data-testid="stSidebar"] {{
         width: 350px !important;
         background-color: var(--sidebar-bg);
         border-right: 1px solid var(--element-border);
-    }
-    [data-testid="stSidebarCollapseButton"] {  /* Hide toggle button */
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        overflow-y: auto;
+    }}
+    [data-testid="stSidebarCollapseButton"] {{  /* Hide toggle button */
         display: none !important;
-    }
-    .stSidebar {
+    }}
+    .stSidebar {{
         min-width: 350px !important;
         visibility: visible !important;
-    }
-    .stSidebar h1 {
+    }}
+    .stSidebar h1 {{
         color: var(--header-color); /* Databricks orange */
         font-size: 32px;
         margin-bottom: 10px;
-    }
-    .stSidebar p {
+    }}
+    .stSidebar p {{
         color: var(--text-color);
         font-size: 16px;
-    }
+    }}
 
     /* Expander Styling */
-    [data-testid="stExpander"] summary {
+    [data-testid="stExpander"] summary {{
         font-size: 26px !important;
         font-weight: bold !important;
         color: var(--header-color) !important;
         white-space: nowrap !important;
-    }
-    .st-expander-content p {
+    }}
+    .st-expander-content p {{
         font-size: 12px !important;
         color: var(--text-color) !important;
-    }
+    }}
 
     /* Main Content Styling */
-    h2, h3 {
+    h2, h3 {{
         color: var(--header-color); /* Databricks orange */
         font-weight: bold;
         margin-top: 20px;
-    }
+    }}
 
     /* Input Fields */
-    .stTextInput > label {
+    .stTextInput > label {{
         color: var(--text-color);
         font-weight: bold;
         font-size: 16px;
-    }
-    .stTextInput > div > input {
+    }}
+    .stTextInput > div > input {{
         border: 1px solid var(--element-border);
         border-radius: 5px;
         padding: 8px;
         font-size: 14px;
         background-color: var(--element-bg);
         color: var(--element-text);
-    }
-    .stTextInput > div > input::placeholder {
+    }}
+    .stTextInput > div > input::placeholder {{
         color: #888888;
-    }
+    }}
 
     /* Buttons */
-    .stButton > button {
+    .stButton > button {{
         background-color: var(--header-color); /* Databricks orange */
         color: #FFFFFF;
         border-radius: 5px;
         padding: 10px 20px;
         font-size: 16px;
         border: none;
-    }
-    .stButton > button:hover {
-        background-color: #E0301E; /* Darker orange on hover */
-    }
+    }}
+    .stButton > button:hover {{
+        background-color: var(--button-hover-bg); /* Lighter orange for better contrast */
+        border: 1px solid #FFFFFF;
+    }}
 
     /* Results Table */
-    .stDataFrame {
+    .stDataFrame {{
         border: 1px solid var(--element-border);
         border-radius: 5px;
         background-color: var(--element-bg);
-    }
-    .stDataFrame table th {
+    }}
+    .stDataFrame table th {{
         background-color: var(--element-header-bg);
         color: var(--element-header-text);
         font-weight: bold;
-    }
-    .stDataFrame table td {
+    }}
+    .stDataFrame table td {{
         color: var(--element-text);
-    }
+    }}
 
     /* Alerts */
-    .stAlert {
+    .stAlert {{
         border-radius: 5px;
-    }
+    }}
 
     /* Pie Chart Section */
-    .stPlotlyChart, .stImage {
+    .stPlotlyChart, .stImage {{
         background-color: var(--element-bg);
         border-radius: 5px;
         padding: 10px;
-    }
-
-    /* Theme Toggle Button */
-    .theme-toggle {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 # Theme toggle button
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'light'
-
 def toggle_theme():
-    if st.session_state.theme == 'light':
-        st.session_state.theme = 'dark'
-    else:
-        st.session_state.theme = 'light'
-    st.rerun()
+    st.session_state.theme = 'dark' if st.session_state.theme == 'light' else 'light'
 
-st.markdown(f"""
-    <div class="theme-toggle">
-        <button onclick="document.body.setAttribute('data-theme', '{st.session_state.theme}');">Toggle Theme</button>
-    </div>
-""", unsafe_allow_html=True)
-if st.button("Toggle Theme", key="theme_toggle"):
-    toggle_theme()
-
-# Apply theme to body
-st.markdown(f"""
-    <script>
-        document.body.setAttribute('data-theme', '{st.session_state.theme}');
-    </script>
-""", unsafe_allow_html=True)
+# Place the toggle button in the main content area (top-right)
+col1, col2 = st.columns([9, 1])
+with col2:
+    if st.button(f"Switch to {'Dark' if st.session_state.theme == 'light' else 'Light'} Mode", key="theme_toggle"):
+        toggle_theme()
+        st.rerun()
 
 # Helper functions
 def normalize_text(text):
@@ -423,9 +383,8 @@ def generate_skill_pie_chart(resumes):
     st.session_state.pie_chart_time = time.time() - start_time
     return fig
 
-@st.cache_data
 def render_sidebar():
-    """Render sidebar content once and cache it to avoid re-rendering."""
+    """Render sidebar content."""
     with st.sidebar:
         st.markdown("""
             <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>📄 Resume Screening Assistant for Databricks</h1>
@@ -498,7 +457,7 @@ def render_sidebar():
 
 def main():
     """Main function to run the Streamlit app for resume screening."""
-    # Render sidebar once to avoid re-rendering
+    # Render sidebar
     render_sidebar()
 
     # Initialize session state
