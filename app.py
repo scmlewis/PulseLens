@@ -522,4 +522,7 @@ def main():
 
             st.session_state.total_analyze_time = time.time() - start_time
             # Detailed timing logs
-            st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f}
+            st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
+            st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
+            st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
+            st.write(f"Extract Skills Time:
