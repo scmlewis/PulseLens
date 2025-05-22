@@ -186,7 +186,7 @@ def validate_input(text, is_resume=True):
         return "Input is too short (minimum 10 characters)."
     text_normalized = normalize_text(text)
     text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
-    found_skill = any(re.search(rf'\b{re.escape(skill)}\b', text_normalized) for skill in skills_list)
+    found_skill = bool(skills_pattern.search(text_normalized))  # Use compiled skills_pattern
     if is_resume and not found_skill:
         return "Please include at least one data/tech skill (e.g., python, sql, databricks)."
     if is_resume and not re.search(r'\d+\s*year(s)?|senior', text.lower()):
