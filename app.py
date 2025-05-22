@@ -36,7 +36,7 @@ normalize_pattern = re.compile(r'_|-|,\s*collaborated in agile teams|,\s*develop
 if 'theme' not in st.session_state:
     st.session_state.theme = 'light'
 
-# Apply custom CSS with dark mode support and background image
+# Apply custom CSS with dark mode support, background image, and scrollable sidebar
 st.markdown(f"""
     <style>
     /* Define CSS variables for light and dark themes */
@@ -91,8 +91,9 @@ st.markdown(f"""
         position: fixed;
         top: 0;
         left: 0;
-        height: 100%;
-        overflow-y: auto;
+        max-height: 100vh; /* Constrain to viewport height */
+        overflow-y: auto; /* Enable vertical scrolling */
+        padding-bottom: 20px; /* Add padding to prevent content cutoff */
     }}
     [data-testid="stSidebarCollapseButton"] {{  /* Hide toggle button */
         display: none !important;
@@ -345,7 +346,8 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
     result = {
         "Suitability": suitability,
         "Data/Tech Related Skills Summary": summary,
-        "Warning": warning or "None"
+        "Warning": warning or "None",
+        "Inference Time": time.time() - start_time  # Log inference time for each resume
     }
     
     st.session_state.classify_summarize_time = time.time() - start_time
@@ -515,50 +517,54 @@ def main():
             placeholder="e.g., 'Data engineer requires python, spark, 5 years+'"
         )
 
-    # Analyze button
+    # Analyze button with loading spinner
     if st.button("Analyze"):
-        start_time = time.time()
-        resumes = tuple(resume.strip() for resume in st.session_state.resumes[:num_resumes])  # Use tuple for cache stability
-        job_description = st.session_state.job_description.strip()
+        with st.spinner("Analyzing resumes... This may take a moment depending on server load."):
+            start_time = time.time()
+            resumes = tuple(resume.strip() for resume in st.session_state.resumes[:num_resumes])  # Use tuple for cache stability
+            job_description = st.session_state.job_description.strip()
 
-        valid_resumes = []
-        for i, resume in enumerate(resumes):
-            validation_error = validate_input(resume, is_resume=True)
-            if validation_error and resume:
-                st.error(f"Resume {i+1}: {validation_error}")
-            elif resume:
-                valid_resumes.append(resume)
+            valid_resumes = []
+            for i, resume in enumerate(resumes):
+                validation_error = validate_input(resume, is_resume=True)
+                if validation_error and resume:
+                    st.error(f"Resume {i+1}: {validation_error}")
+                elif resume:
+                    valid_resumes.append(resume)
 
-        validation_error = validate_input(job_description, is_resume=False)
-        if validation_error and job_description:
-            st.error(f"Job Description: {validation_error}")
+            validation_error = validate_input(job_description, is_resume=False)
+            if validation_error and job_description:
+                st.error(f"Job Description: {validation_error}")
 
-        if valid_resumes and job_description:
-            job_skills_set = extract_skills(job_description)
-            results = []
-            for i, resume in enumerate(valid_resumes):
-                bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
-                result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
-                result["Resume"] = f"Resume {i+1}"
-                results.append(result)
-            st.session_state.results = results
-            pie_chart = generate_skill_pie_chart(valid_resumes)
-            st.session_state.pie_chart = pie_chart
+            if valid_resumes and job_description:
+                job_skills_set = extract_skills(job_description)
+                results = []
+                for i, resume in enumerate(valid_resumes):
+                    bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
+                    result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
+                    result["Resume"] = f"Resume {i+1}"
+                    results.append(result)
+                st.session_state.results = results
+                pie_chart = generate_skill_pie_chart(valid_resumes)
+                st.session_state.pie_chart = pie_chart
 
-        st.session_state.total_analyze_time = time.time() - start_time
-        # Log timing for debugging
-        st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
-        st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
-        st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
-        st.write(f"Extract Skills Time: {getattr(st.session_state, 'extract_skills_time', 0):.2f} seconds")
-        st.write(f"Classify/Summarize Time: {getattr(st.session_state, 'classify_summarize_time', 0):.2f} seconds")
-        st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
+            st.session_state.total_analyze_time = time.time() - start_time
+            # Detailed timing logs
+            st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
+            st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
+            st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
+            st.write(f"Extract Skills Time: {getattr(st.session_state, 'extract_skills_time', 0):.2f} seconds")
+            if st.session_state.results:
+                for idx, result in enumerate(st.session_state.results):
+                    st.write(f"Inference Time for {result['Resume']}: {result['Inference Time']:.2f} seconds")
+            st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
 
     # Display results
     if st.session_state.results:
         with st.container():
             st.subheader("Results")
             df = pd.DataFrame(st.session_state.results)
+            df = df[["Resume", "Suitability", "Data/Tech Related Skills Summary", "Warning"]]  # Exclude Inference Time from display
             st.dataframe(df, use_container_width=True)
 
             csv = df.to_csv(index=False)
