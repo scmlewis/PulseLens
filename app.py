@@ -299,10 +299,10 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
         bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
         with torch.no_grad():
             # BERT inference
-            elapsed_time = time.time() - start_time
-            if elapsed_time > timeout:
-                raise TimeoutError("BERT inference timed out")
+            bert_start = time.time()
             outputs = bert_model(**bert_tokenized)
+            if time.time() - bert_start > timeout:
+                raise TimeoutError("BERT inference timed out")
         
         logits = outputs.logits
         probabilities = torch.softmax(logits, dim=1).cpu().numpy()
@@ -313,9 +313,7 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
         t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
         with torch.no_grad():
             # T5 inference
-            elapsed_time = time.time() - start_time
-            if elapsed_time > timeout:
-                raise TimeoutError("T5 inference timed out")
+            t5_start = time.time()
             t5_outputs = t5_model.generate(
                 t5_tokenized['input_ids'],
                 attention_mask=t5_tokenized['attention_mask'],
@@ -326,6 +324,8 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
                 length_penalty=3.0,
                 early_stopping=True
             )
+            if time.time() - t5_start > timeout:
+                raise TimeoutError("T5 inference timed out")
         summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
         summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
         
@@ -382,77 +382,38 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
             "Inference Time": time.time() - start_time
         }
 
-def render_sidebar():
-    """Render sidebar content."""
-    with st.sidebar:
-        st.markdown("""
-            <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>📄 Resume Screening Assistant for Databricks</h1>
-            <p style='text-align: center; font-size: 16px; margin-top: 0;'>
-                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description, providing suitability classifications, skill summaries, and a skill frequency visualization.
-            </p>
-        """, unsafe_allow_html=True)
-
-        # Persist expander states
-        if 'expander1' not in st.session_state:
-            st.session_state.expander1 = True
-        if 'expander2' not in st.session_state:
-            st.session_state.expander2 = False
-        if 'expander3' not in st.session_state:
-            st.session_state.expander3 = False
-        if 'expander4' not in st.session_state:
-            st.session_state.expander4 = False
-
-        with st.expander("How to Use the App", expanded=st.session_state.expander1):
-            st.session_state.expander1 = True
-            st.markdown("""
-                - Enter up to 5 candidate resumes in the text boxes below, listing data/tech skills and experience (e.g., "Expert in python, databricks, 6 years experience").
-                - Enter the job description, specifying required skills and experience (e.g., "Data engineer requires python, spark, 5 years+").
-                - Click the "Analyze" button to evaluate all non-empty resumes (at least one resume required).
-                - Use the "Add Resume" or "Remove Resume" buttons to adjust the number of resume fields (1-5).
-                - Use the "Reset" button to clear all inputs and results.
-                - Results can be downloaded as a CSV file for record-keeping.
-                - View the skill frequency pie chart to see the distribution of skills across resumes.
-            """)
-
-        with st.expander("Example Test Cases", expanded=st.session_state.expander2):
-            st.session_state.expander2 = True
-            st.markdown("""
-                - **Test Case 1**:
-                    - Resume 1: "Expert in python, machine learning, tableau, 4 years experience"
-                    - Resume 2: "Skilled in sql, pandas, 2 years experience"
-                    - Resume 3: "Proficient in java, python, 5 years experience"
-                    - Job Description: "Data scientist requires python, machine learning, 3 years+"
-                - **Test Case 2**:
-                    - Resume 1: "Skilled in databricks, spark, python, 6 years experience"
-                    - Resume 2: "Expert in sql, tableau, business intelligence, 3 years experience"
-                    - Resume 3: "Proficient in rust, langchain, 2 years experience"
-                    - Job Description: "Data engineer requires python, spark, 5 years+"
-            """)
-
-        with st.expander("Guidelines", expanded=st.session_state.expander3):
-            st.session_state.expander3 = True
-            st.markdown("""
-                - Use comma-separated skills from a comprehensive list including python, sql, databricks, etc. (79 skills supported, see Project Report for full list).
-                - Include experience in years (e.g., "3 years experience" or "1 year experience") or as "senior".
-                - Focus on data/tech skills for accurate summarization.
-                - Resumes with only irrelevant skills (e.g., sales, marketing) will be classified as "Irrelevant".
-            """)
-
-        with st.expander("Classification Criteria", expanded=st.session_state.expander4):
-            st.session_state.expander4 = True
-            st.markdown("""
-                Resumes are classified based on:
-                - **Skill Overlap**: The resume's data/tech skills are compared to the job's requirements. A skill overlap below 40% results in an "Irrelevant" classification.
-                - **Model Confidence**: A finetuned BERT model evaluates skill relevance. If confidence is below 85%, the classification is "Uncertain".
-                - **Experience Match**: The resume's experience (in years or seniority) must meet or exceed the job's requirement.
-
-                **Outcomes**:
-                - **Relevant**: Skill overlap ≥ 50%, sufficient experience, and high model confidence (≥ 85%).
-                - **Irrelevant**: Skill overlap < 40% or high confidence in low skill relevance.
-                - **Uncertain**: Skill overlap ≥ 50% but experience mismatch (e.g., resume has 2 years, job requires 5 years+), or low model confidence (< 85%).
-
-                **Note**: An experience mismatch warning is shown if the resume's experience is below the job's requirement, overriding the skill overlap and confidence to classify as Uncertain.
-            """)
+@st.cache_data
+def generate_skill_pie_chart(resumes):
+    """Generate a pie chart of skill frequency across resumes."""
+    start_time = time.time()
+    skill_counts = {}
+    total_resumes = len([r for r in resumes if r.strip()])
+    
+    if total_resumes == 0:
+        return None
+    
+    for resume in resumes:
+        if resume.strip():
+            resume_lower = normalize_text(resume)
+            resume_lower = re.sub(r'[,_-]', ' ', resume_lower)
+            found_skills = skills_pattern.findall(resume_lower)
+            for skill in found_skills:
+                skill_counts[skill] = skill_counts.get(skill, 0) + 1
+    
+    if not skill_counts:
+        return None
+    
+    labels = list(skill_counts.keys())
+    sizes = [(count / sum(skill_counts.values())) * 100 for count in skill_counts.values()]
+    
+    fig, ax = plt.subplots(figsize=(6, 4))
+    colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
+    ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
+    ax.axis('equal')
+    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#FF3621', pad=10)
+    
+    st.session_state.pie_chart_time = time.time() - start_time
+    return fig
 
 def main():
     """Main function to run the Streamlit app for resume screening."""
@@ -518,10 +479,11 @@ def main():
             placeholder="e.g., 'Data engineer requires python, spark, 5 years+'"
         )
 
-    # Analyze button with loading spinner
+    # Analyze button with loading spinner and global timeout
     if st.button("Analyze"):
         with st.spinner("Analyzing resumes... This may take a moment depending on server load."):
             start_time = time.time()
+            global_timeout = 180  # Global timeout of 3 minutes for all resumes
             resumes = tuple(resume.strip() for resume in st.session_state.resumes[:num_resumes])  # Use tuple for cache stability
             job_description = st.session_state.job_description.strip()
 
@@ -542,6 +504,9 @@ def main():
                     job_skills_set = extract_skills(job_description)
                     results = []
                     for i, resume in enumerate(valid_resumes):
+                        if time.time() - start_time > global_timeout:
+                            st.error("Analysis timed out after 3 minutes. Please try again or deploy on a different platform.")
+                            break
                         st.write(f"Processing {resume[:50]}...")  # Log progress
                         bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
                         result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
@@ -557,42 +522,4 @@ def main():
 
             st.session_state.total_analyze_time = time.time() - start_time
             # Detailed timing logs
-            st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
-            st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
-            st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
-            st.write(f"Extract Skills Time: {getattr(st.session_state, 'extract_skills_time', 0):.2f} seconds")
-            if st.session_state.results:
-                for idx, result in enumerate(st.session_state.results):
-                    st.write(f"Inference Time for {result['Resume']}: {result['Inference Time']:.2f} seconds")
-            st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
-
-            # Performance note
-            if st.session_state.total_analyze_time > 60:
-                st.warning("The runtime is longer than expected due to server load on Hugging Face Spaces. For a smoother experience, consider testing locally or deploying on a different platform (e.g., Streamlit Community Cloud or a personal server).")
-
-    # Display results
-    if st.session_state.results:
-        with st.container():
-            st.subheader("Results")
-            df = pd.DataFrame(st.session_state.results)
-            df = df[["Resume", "Suitability", "Data/Tech Related Skills Summary", "Warning"]]  # Exclude Inference Time from display
-            st.dataframe(df, use_container_width=True)
-
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="Download Results as CSV",
-                data=csv,
-                file_name="resume_screening_results.csv",
-                mime="text/csv",
-            )
-
-    # Display pie chart
-    if st.session_state.pie_chart:
-        with st.container():
-            st.subheader("Skill Frequency Across Resumes")
-            st.pyplot(st.session_state.pie_chart)
-    elif st.session_state.results and not st.session_state.pie_chart:
-        st.warning("No recognized data/tech skills found in the resumes to generate a pie chart.")
-
-if __name__ == "__main__":
-    main()
+            st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f}
