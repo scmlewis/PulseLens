@@ -415,6 +415,78 @@ def generate_skill_pie_chart(resumes):
     st.session_state.pie_chart_time = time.time() - start_time
     return fig
 
+def render_sidebar():
+    """Render sidebar content."""
+    with st.sidebar:
+        st.markdown("""
+            <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>📄 Resume Screening Assistant for Databricks</h1>
+            <p style='text-align: center; font-size: 16px; margin-top: 0;'>
+                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description, providing suitability classifications, skill summaries, and a skill frequency visualization.
+            </p>
+        """, unsafe_allow_html=True)
+
+        # Persist expander states
+        if 'expander1' not in st.session_state:
+            st.session_state.expander1 = True
+        if 'expander2' not in st.session_state:
+            st.session_state.expander2 = False
+        if 'expander3' not in st.session_state:
+            st.session_state.expander3 = False
+        if 'expander4' not in st.session_state:
+            st.session_state.expander4 = False
+
+        with st.expander("How to Use the App", expanded=st.session_state.expander1):
+            st.session_state.expander1 = True
+            st.markdown("""
+                - Enter up to 5 candidate resumes in the text boxes below, listing data/tech skills and experience (e.g., "Expert in python, databricks, 6 years experience").
+                - Enter the job description, specifying required skills and experience (e.g., "Data engineer requires python, spark, 5 years+").
+                - Click the "Analyze" button to evaluate all non-empty resumes (at least one resume required).
+                - Use the "Add Resume" or "Remove Resume" buttons to adjust the number of resume fields (1-5).
+                - Use the "Reset" button to clear all inputs and results.
+                - Results can be downloaded as a CSV file for record-keeping.
+                - View the skill frequency pie chart to see the distribution of skills across resumes.
+            """)
+
+        with st.expander("Example Test Cases", expanded=st.session_state.expander2):
+            st.session_state.expander2 = True
+            st.markdown("""
+                - **Test Case 1**:
+                    - Resume 1: "Expert in python, machine learning, tableau, 4 years experience"
+                    - Resume 2: "Skilled in sql, pandas, 2 years experience"
+                    - Resume 3: "Proficient in java, python, 5 years experience"
+                    - Job Description: "Data scientist requires python, machine learning, 3 years+"
+                - **Test Case 2**:
+                    - Resume 1: "Skilled in databricks, spark, python, 6 years experience"
+                    - Resume 2: "Expert in sql, tableau, business intelligence, 3 years experience"
+                    - Resume 3: "Proficient in rust, langchain, 2 years experience"
+                    - Job Description: "Data engineer requires python, spark, 5 years+"
+            """)
+
+        with st.expander("Guidelines", expanded=st.session_state.expander3):
+            st.session_state.expander3 = True
+            st.markdown("""
+                - Use comma-separated skills from a comprehensive list including python, sql, databricks, etc. (79 skills supported, see Project Report for full list).
+                - Include experience in years (e.g., "3 years experience" or "1 year experience") or as "senior".
+                - Focus on data/tech skills for accurate summarization.
+                - Resumes with only irrelevant skills (e.g., sales, marketing) will be classified as "Irrelevant".
+            """)
+
+        with st.expander("Classification Criteria", expanded=st.session_state.expander4):
+            st.session_state.expander4 = True
+            st.markdown("""
+                Resumes are classified based on:
+                - **Skill Overlap**: The resume's data/tech skills are compared to the job's requirements. A skill overlap below 40% results in an "Irrelevant" classification.
+                - **Model Confidence**: A finetuned BERT model evaluates skill relevance. If confidence is below 85%, the classification is "Uncertain".
+                - **Experience Match**: The resume's experience (in years or seniority) must meet or exceed the job's requirement.
+
+                **Outcomes**:
+                - **Relevant**: Skill overlap ≥ 50%, sufficient experience, and high model confidence (≥ 85%).
+                - **Irrelevant**: Skill overlap < 40% or high confidence in low skill relevance.
+                - **Uncertain**: Skill overlap ≥ 50% but experience mismatch (e.g., resume has 2 years, job requires 5 years+), or low model confidence (< 85%).
+
+                **Note**: An experience mismatch warning is shown if the resume's experience is below the job's requirement, overriding the skill overlap and confidence to classify as Uncertain.
+            """)
+
 def main():
     """Main function to run the Streamlit app for resume screening."""
     # Render sidebar
@@ -525,4 +597,39 @@ def main():
             st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
             st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
             st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
-            st.write(f"Extract Skills Time:
+            st.write(f"Extract Skills Time: {getattr(st.session_state, 'extract_skills_time', 0):.2f} seconds")
+            if st.session_state.results:
+                for idx, result in enumerate(st.session_state.results):
+                    st.write(f"Inference Time for {result['Resume']}: {result['Inference Time']:.2f} seconds")
+            st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
+
+            # Performance note
+            if st.session_state.total_analyze_time > 60:
+                st.warning("The runtime is longer than expected due to server load on Hugging Face Spaces. For a smoother experience, consider testing locally or deploying on a different platform (e.g., Streamlit Community Cloud or a personal server).")
+
+    # Display results
+    if st.session_state.results:
+        with st.container():
+            st.subheader("Results")
+            df = pd.DataFrame(st.session_state.results)
+            df = df[["Resume", "Suitability", "Data/Tech Related Skills Summary", "Warning"]]  # Exclude Inference Time from display
+            st.dataframe(df, use_container_width=True)
+
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="Download Results as CSV",
+                data=csv,
+                file_name="resume_screening_results.csv",
+                mime="text/csv",
+            )
+
+    # Display pie chart
+    if st.session_state.pie_chart:
+        with st.container():
+            st.subheader("Skill Frequency Across Resumes")
+            st.pyplot(st.session_state.pie_chart)
+    elif st.session_state.results and not st.session_state.pie_chart:
+        st.warning("No recognized data/tech skills found in the resumes to generate a pie chart.")
+
+if __name__ == "__main__":
+    main()
