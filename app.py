@@ -9,6 +9,7 @@ import re
 import io
 import matplotlib.pyplot as plt
 import time
+import pandas as pd  # Added missing import
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
@@ -38,20 +39,6 @@ st.markdown("""
     .stApp {
         background-color: #F5F5F5; /* Light gray background */
         font-family: 'Arial', sans-serif;
-    }
-
-    /* Header Banner */
-    .header-banner {
-        background-color: #FF3621; /* Databricks orange */
-        color: #FFFFFF;
-        padding: 15px;
-        text-align: center;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-    .header-banner h1 {
-        margin: 0;
-        font-size: 32px;
     }
 
     /* Sidebar Styling */
@@ -151,13 +138,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Add a header banner
-st.markdown("""
-    <div class="header-banner">
-        <h1>📄 Resume Screening Assistant for Databricks</h1>
-    </div>
-""", unsafe_allow_html=True)
-
 # Helper functions
 def normalize_text(text):
     text = text.lower()
@@ -186,7 +166,7 @@ def validate_input(text, is_resume=True):
         return "Input is too short (minimum 10 characters)."
     text_normalized = normalize_text(text)
     text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
-    found_skill = bool(skills_pattern.search(text_normalized))  # Use compiled skills_pattern
+    found_skill = bool(skills_pattern.search(text_normalized))
     if is_resume and not found_skill:
         return "Please include at least one data/tech skill (e.g., python, sql, databricks)."
     if is_resume and not re.search(r'\d+\s*year(s)?|senior', text.lower()):
@@ -240,7 +220,8 @@ def extract_skills(text):
     return set(found_skills)
 
 @st.cache_data
-def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_inputs, _t5_tokenized, _job_skills_set):
+def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_input, _t5_tokenized, _job_skills_set):
+    """Process one resume at a time to reduce CPU load."""
     _, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
     start_time = time.time()
     
@@ -270,42 +251,41 @@ def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_
     summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
     summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
     
-    for i, (resume, prob, pred, summary, t5_input) in enumerate(zip(resumes, probabilities, predictions, summaries, _t5_inputs)):
-        resume_skills_set = extract_skills(resume)
-        skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
+    prob, pred, summary, t5_input = probabilities[0], predictions[0], summaries[0], _t5_input
+    resume_skills_set = extract_skills(resume)
+    skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
 
-        if prob[pred] < confidence_threshold:
-            suitability = "Uncertain"
-            warning = f"Low confidence: {prob[pred]:.4f}"
+    if prob[pred] < confidence_threshold:
+        suitability = "Uncertain"
+        warning = f"Low confidence: {prob[pred]:.4f}"
+    else:
+        if skill_overlap < 0.4:
+            suitability = "Irrelevant"
+            warning = "Skills are irrelevant"
         else:
-            if skill_overlap < 0.4:
-                suitability = "Irrelevant"
-                warning = "Skills are irrelevant"
-            else:
-                suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
-                warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
+            suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
+            warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
 
-                exp_warning = check_experience_mismatch(resume, job_description)
-                if exp_warning:
-                    suitability = "Uncertain"
-                    warning = exp_warning
-        
-        skills = list(set(skills_pattern.findall(t5_input)))
-        exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
-        if skills and exp_match:
-            summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
-        else:
-            summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
-        
-        results.append({
-            "Resume": f"Resume {st.session_state.resumes.index(resume)+1}",
-            "Suitability": suitability,
-            "Data/Tech Related Skills Summary": summary,
-            "Warning": warning or "None"
-        })
+            exp_warning = check_experience_mismatch(resume, job_description)
+            if exp_warning:
+                suitability = "Uncertain"
+                warning = exp_warning
+    
+    skills = list(set(skills_pattern.findall(t5_input)))
+    exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
+    if skills and exp_match:
+        summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
+    else:
+        summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
+    
+    result = {
+        "Suitability": suitability,
+        "Data/Tech Related Skills Summary": summary,
+        "Warning": warning or "None"
+    }
     
     st.session_state.classify_summarize_time = time.time() - start_time
-    return results
+    return result
 
 @st.cache_data
 def generate_skill_pie_chart(resumes):
@@ -344,7 +324,7 @@ def render_sidebar():
     """Render sidebar content once and cache it to avoid re-rendering."""
     with st.sidebar:
         st.markdown("""
-            <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
+            <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>📄 Resume Screening Assistant for Databricks</h1>
             <p style='text-align: center; font-size: 16px; margin-top: 0;'>
                 Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description, providing suitability classifications, skill summaries, and a skill frequency visualization.
             </p>
@@ -473,8 +453,12 @@ def main():
 
         if valid_resumes and job_description:
             job_skills_set = extract_skills(job_description)
-            bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs(valid_resumes, job_description)
-            results = classify_and_summarize_batch(valid_resumes, job_description, bert_tokenized, t5_inputs, t5_tokenized, job_skills_set)
+            results = []
+            for i, resume in enumerate(valid_resumes):
+                bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
+                result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
+                result["Resume"] = f"Resume {i+1}"
+                results.append(result)
             st.session_state.results = results
             pie_chart = generate_skill_pie_chart(valid_resumes)
             st.session_state.pie_chart = pie_chart
