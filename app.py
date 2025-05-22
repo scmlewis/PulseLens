@@ -290,13 +290,18 @@ def extract_skills(text):
 
 @st.cache_data
 def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_input, _t5_tokenized, _job_skills_set):
-    """Process one resume at a time to reduce CPU load."""
+    """Process one resume at a time to reduce CPU load with a timeout."""
     _, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
     start_time = time.time()
+    timeout = 60  # Timeout after 60 seconds
     
     try:
         bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
         with torch.no_grad():
+            # BERT inference
+            elapsed_time = time.time() - start_time
+            if elapsed_time > timeout:
+                raise TimeoutError("BERT inference timed out")
             outputs = bert_model(**bert_tokenized)
         
         logits = outputs.logits
@@ -304,10 +309,13 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
         predictions = np.argmax(probabilities, axis=1)
         
         confidence_threshold = 0.85
-        results = []
         
         t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
         with torch.no_grad():
+            # T5 inference
+            elapsed_time = time.time() - start_time
+            if elapsed_time > timeout:
+                raise TimeoutError("T5 inference timed out")
             t5_outputs = t5_model.generate(
                 t5_tokenized['input_ids'],
                 attention_mask=t5_tokenized['attention_mask'],
@@ -357,9 +365,22 @@ def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_i
         
         st.session_state.classify_summarize_time = time.time() - start_time
         return result
+    except TimeoutError as e:
+        st.warning(f"Skipped processing for resume due to timeout: {str(e)}")
+        return {
+            "Suitability": "Error",
+            "Data/Tech Related Skills Summary": "Processing timed out",
+            "Warning": str(e),
+            "Inference Time": time.time() - start_time
+        }
     except Exception as e:
         st.error(f"Error during inference for resume: {str(e)}")
-        raise e
+        return {
+            "Suitability": "Error",
+            "Data/Tech Related Skills Summary": "Failed to process",
+            "Warning": str(e),
+            "Inference Time": time.time() - start_time
+        }
 
 def render_sidebar():
     """Render sidebar content."""
@@ -451,6 +472,10 @@ def main():
         st.session_state.results = None
     if 'pie_chart' not in st.session_state:
         st.session_state.pie_chart = None
+    if 'total_analyze_time' not in st.session_state:
+        st.session_state.total_analyze_time = 0  # Initialize to avoid AttributeError
+    if 'classify_summarize_time' not in st.session_state:
+        st.session_state.classify_summarize_time = 0
 
     # Resume input fields
     with st.container():
@@ -541,6 +566,10 @@ def main():
                     st.write(f"Inference Time for {result['Resume']}: {result['Inference Time']:.2f} seconds")
             st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
 
+            # Performance note
+            if st.session_state.total_analyze_time > 60:
+                st.warning("The runtime is longer than expected due to server load on Hugging Face Spaces. For a smoother experience, consider testing locally or deploying on a different platform (e.g., Streamlit Community Cloud or a personal server).")
+
     # Display results
     if st.session_state.results:
         with st.container():
@@ -564,10 +593,6 @@ def main():
             st.pyplot(st.session_state.pie_chart)
     elif st.session_state.results and not st.session_state.pie_chart:
         st.warning("No recognized data/tech skills found in the resumes to generate a pie chart.")
-
-    # Performance note
-    if st.session_state.total_analyze_time and st.session_state.total_analyze_time > 60:
-        st.warning("The runtime is longer than expected due to server load on Hugging Face Spaces. For a smoother experience, consider testing locally or deploying on a different platform (e.g., Streamlit Community Cloud or a personal server).")
 
 if __name__ == "__main__":
     main()
