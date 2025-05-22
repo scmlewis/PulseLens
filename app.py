@@ -8,9 +8,28 @@ import numpy as np
 import re
 import io
 import matplotlib.pyplot as plt
+import time
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
+
+# Compile regex patterns once for efficiency
+skills_pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, [
+    'python', 'sql', 'c++', 'java', 'tableau', 'machine learning', 'data analysis',
+    'business intelligence', 'r', 'tensorflow', 'pandas', 'spark', 'scikit-learn', 'aws',
+    'javascript', 'scala', 'go', 'ruby', 'pytorch', 'keras', 'deep learning', 'nlp',
+    'computer vision', 'azure', 'gcp', 'docker', 'kubernetes', 'hadoop', 'kafka',
+    'airflow', 'power bi', 'matplotlib', 'seaborn', 'plotly', 'ggplot', 'mysql',
+    'postgresql', 'mongodb', 'redis', 'git', 'linux', 'api', 'rest',
+    'rust', 'kotlin', 'typescript', 'julia', 'snowflake', 'bigquery', 'cassandra',
+    'neo4j', 'hugging face', 'langchain', 'onnx', 'xgboost', 'terraform', 'ansible',
+    'jenkins', 'gitlab ci', 'qlik', 'looker', 'd3 js', 'blockchain', 'quantum computing',
+    'cybersecurity', 'project management', 'technical writing', 'business analysis',
+    'agile methodologies', 'communication', 'team leadership',
+    'databricks', 'synapse', 'delta lake', 'streamlit', 'fastapi', 'graphql', 'mlflow', 'kedro'
+])) + r')\b')
+
+normalize_pattern = re.compile(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects')
 
 # Apply simplified custom CSS for a professional theme inspired by Databricks
 st.markdown("""
@@ -139,42 +158,21 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Skills list (79 skills from Application_Demo.ipynb)
-skills_list = [
-    'python', 'sql', 'c++', 'java', 'tableau', 'machine learning', 'data analysis',
-    'business intelligence', 'r', 'tensorflow', 'pandas', 'spark', 'scikit-learn', 'aws',
-    'javascript', 'scala', 'go', 'ruby', 'pytorch', 'keras', 'deep learning', 'nlp',
-    'computer vision', 'azure', 'gcp', 'docker', 'kubernetes', 'hadoop', 'kafka',
-    'airflow', 'power bi', 'matplotlib', 'seaborn', 'plotly', 'ggplot', 'mysql',
-    'postgresql', 'mongodb', 'redis', 'git', 'linux', 'api', 'rest',
-    'rust', 'kotlin', 'typescript', 'julia', 'snowflake', 'bigquery', 'cassandra',
-    'neo4j', 'hugging face', 'langchain', 'onnx', 'xgboost', 'terraform', 'ansible',
-    'jenkins', 'gitlab ci', 'qlik', 'looker', 'd3 js', 'blockchain', 'quantum computing',
-    'cybersecurity', 'project management', 'technical writing', 'business analysis',
-    'agile methodologies', 'communication', 'team leadership',
-    'databricks', 'synapse', 'delta lake', 'streamlit', 'fastapi', 'graphql', 'mlflow', 'kedro'
-]
-
 # Helper functions
 def normalize_text(text):
     text = text.lower()
-    # Remove underscores, hyphens, and specific phrases, replacing with empty string
-    text = re.sub(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects', '', text)
-    return text
+    return normalize_pattern.sub('', text)
 
 def check_experience_mismatch(resume, job_description):
     resume_match = re.search(r'(\d+)\s*years?|senior', resume.lower())
-    # Simplified pattern to match "X years+" or "senior+"
     job_match = re.search(r'(\d+)\s*years?\+|senior\+', job_description.lower())
     if resume_match and job_match:
         resume_years = resume_match.group(0)
         job_years = job_match.group(0)
-        # Handle resume years
         if 'senior' in resume_years:
             resume_num = 10
         else:
             resume_num = int(resume_match.group(1))
-        # Handle job years
         if 'senior+' in job_years:
             job_num = 10
         else:
@@ -186,17 +184,9 @@ def check_experience_mismatch(resume, job_description):
 def validate_input(text, is_resume=True):
     if not text.strip() or len(text.strip()) < 10:
         return "Input is too short (minimum 10 characters)."
-    # Normalize text for skill matching: replace commas, underscores, and hyphens with spaces
     text_normalized = normalize_text(text)
-    text_normalized = re.sub(r'[,_-]', ' ', text_normalized)  # Replace commas, underscores, and hyphens with spaces
-    # Check for skills by iterating over skills_list to handle multi-word skills
-    found_skill = False
-    for skill in skills_list:
-        # Escape the skill to handle special characters, and ensure word boundaries
-        pattern = r'\b' + re.escape(skill) + r'\b'
-        if re.search(pattern, text_normalized):
-            found_skill = True
-            break
+    text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
+    found_skill = any(re.search(rf'\b{re.escape(skill)}\b', text_normalized) for skill in skills_list)
     if is_resume and not found_skill:
         return "Please include at least one data/tech skill (e.g., python, sql, databricks)."
     if is_resume and not re.search(r'\d+\s*year(s)?|senior', text.lower()):
@@ -205,6 +195,7 @@ def validate_input(text, is_resume=True):
 
 @st.cache_resource
 def load_models():
+    start_time = time.time()
     bert_model_path = 'scmlewis/bert-finetuned-isom5240'
     bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
     bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
@@ -215,42 +206,45 @@ def load_models():
     t5_model.to(device)
     bert_model.eval()
     t5_model.eval()
+    st.session_state.load_models_time = time.time() - start_time
     return bert_tokenizer, bert_model, t5_tokenizer, t5_model, device
 
 @st.cache_data
-def tokenize_inputs(resumes, job_description, _bert_tokenizer, _t5_tokenizer):
+def tokenize_inputs(resumes, job_description):
     """Precompute tokenized inputs for BERT and T5."""
+    bert_tokenizer, _, t5_tokenizer, _, _ = st.session_state.models
+    start_time = time.time()
+    
     job_description_norm = normalize_text(job_description)
     bert_inputs = [f"resume: {normalize_text(resume)} [sep] job: {job_description_norm}" for resume in resumes]
-    bert_tokenized = _bert_tokenizer(bert_inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
+    bert_tokenized = bert_tokenizer(bert_inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
     
     t5_inputs = []
     for resume in resumes:
         prompt = re.sub(r'\b[Cc]\+\+\b', 'c++', resume)
         prompt_normalized = normalize_text(prompt)
         t5_inputs.append(f"summarize: {prompt_normalized}")
-    t5_tokenized = _t5_tokenizer(t5_inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
+    t5_tokenized = t5_tokenizer(t5_inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
     
+    st.session_state.tokenize_time = time.time() - start_time
     return bert_tokenized, t5_inputs, t5_tokenized
 
 @st.cache_data
 def extract_skills(text):
     """Extract skills from text in a single pass."""
+    start_time = time.time()
     text_normalized = normalize_text(text)
     text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
-    found_skills = []
-    for skill in skills_list:
-        pattern = r'\b' + re.escape(skill) + r'\b'
-        if re.search(pattern, text_normalized):
-            found_skills.append(skill)
+    found_skills = skills_pattern.findall(text_normalized)
+    st.session_state.extract_skills_time = time.time() - start_time
     return set(found_skills)
 
 @st.cache_data
 def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_inputs, _t5_tokenized, _job_skills_set):
-    bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
-    bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
+    _, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
+    start_time = time.time()
     
-    # BERT inference (batched)
+    bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
     with torch.no_grad():
         outputs = bert_model(**bert_tokenized)
     
@@ -261,7 +255,6 @@ def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_
     confidence_threshold = 0.85
     results = []
     
-    # Batch T5 inference for all resumes
     t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
     with torch.no_grad():
         t5_outputs = t5_model.generate(
@@ -269,41 +262,35 @@ def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_
             attention_mask=t5_tokenized['attention_mask'],
             max_length=30,
             min_length=8,
-            num_beams=4,  # Match notebook
+            num_beams=4,
             no_repeat_ngram_size=3,
-            length_penalty=3.0,  # Match notebook
+            length_penalty=3.0,
             early_stopping=True
         )
     summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
     summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
     
     for i, (resume, prob, pred, summary, t5_input) in enumerate(zip(resumes, probabilities, predictions, summaries, _t5_inputs)):
-        # Compute skill overlap
         resume_skills_set = extract_skills(resume)
         skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
 
-        # Step 1: Check model confidence
         if prob[pred] < confidence_threshold:
             suitability = "Uncertain"
             warning = f"Low confidence: {prob[pred]:.4f}"
         else:
-            # Step 2: Check skill irrelevance
             if skill_overlap < 0.4:
                 suitability = "Irrelevant"
                 warning = "Skills are irrelevant"
             else:
-                # Step 3: Determine initial suitability based on skill overlap
                 suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
                 warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
 
-                # Step 4: Check experience mismatch and override suitability if necessary
                 exp_warning = check_experience_mismatch(resume, job_description)
                 if exp_warning:
                     suitability = "Uncertain"
                     warning = exp_warning
         
-        # Post-process T5 summary for all resumes (Relevant, Uncertain, or Irrelevant)
-        skills = list(set(skills_pattern.findall(t5_input)))  # Deduplicate skills
+        skills = list(set(skills_pattern.findall(t5_input)))
         exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
         if skills and exp_match:
             summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
@@ -317,25 +304,23 @@ def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_
             "Warning": warning or "None"
         })
     
+    st.session_state.classify_summarize_time = time.time() - start_time
     return results
 
 @st.cache_data
 def generate_skill_pie_chart(resumes):
+    start_time = time.time()
     skill_counts = {}
     total_resumes = len([r for r in resumes if r.strip()])
     
     if total_resumes == 0:
         return None
     
-    # Count skills that appear in resumes
     for resume in resumes:
         if resume.strip():
             resume_lower = normalize_text(resume)
             resume_lower = re.sub(r'[,_-]', ' ', resume_lower)
-            found_skills = []
-            for skill in skills_list:
-                if re.search(rf'\b{re.escape(skill)}\b', resume_lower):
-                    found_skills.append(skill)
+            found_skills = skills_pattern.findall(resume_lower)
             for skill in found_skills:
                 skill_counts[skill] = skill_counts.get(skill, 0) + 1
     
@@ -349,12 +334,14 @@ def generate_skill_pie_chart(resumes):
     colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
     ax.axis('equal')
-    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#FF3621', pad=10)  # Use Databricks orange for title
+    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#FF3621', pad=10)
+    
+    st.session_state.pie_chart_time = time.time() - start_time
     return fig
 
-def main():
-    """Main function to run the Streamlit app for resume screening."""
-    # Streamlit interface
+@st.cache_data
+def render_sidebar():
+    """Render sidebar content once and cache it to avoid re-rendering."""
     with st.sidebar:
         st.markdown("""
             <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
@@ -411,6 +398,11 @@ def main():
                 **Note**: An experience mismatch warning is shown if the resume's experience is below the job's requirement, overriding the skill overlap and confidence to classify as Uncertain.
             """)
 
+def main():
+    """Main function to run the Streamlit app for resume screening."""
+    # Render sidebar once to avoid re-rendering
+    render_sidebar()
+
     # Initialize session state
     if 'models' not in st.session_state:
         st.session_state.models = load_models()
@@ -426,10 +418,11 @@ def main():
         st.session_state.pie_chart = None
 
     # Resume input fields
-    st.subheader("Candidate Resumes")
-    num_resumes = st.session_state.num_resumes
-    for i in range(num_resumes):
-        st.session_state.resumes[i] = st.text_input(f"Resume {i+1}", value=st.session_state.resumes[i], key=f"resume_{i}")
+    with st.container():
+        st.subheader("Candidate Resumes")
+        num_resumes = st.session_state.num_resumes
+        for i in range(num_resumes):
+            st.session_state.resumes[i] = st.text_input(f"Resume {i+1}", value=st.session_state.resumes[i], key=f"resume_{i}")
 
     # Buttons to add/remove resume fields
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -438,14 +431,14 @@ def main():
             st.session_state.num_resumes += 1
             st.session_state.results = None  # Clear previous results
             st.session_state.pie_chart = None
-            st.rerun()  # Updated to st.rerun()
+            st.rerun()
     with col2:
         if st.button("Remove Resume") and num_resumes > 1:
             st.session_state.num_resumes -= 1
             st.session_state.resumes[num_resumes] = ""  # Clear the removed field
             st.session_state.results = None  # Clear previous results
             st.session_state.pie_chart = None
-            st.rerun()  # Updated to st.rerun()
+            st.rerun()
     with col3:
         if st.button("Reset"):
             st.session_state.num_resumes = 1
@@ -453,15 +446,17 @@ def main():
             st.session_state.job_description = ""
             st.session_state.results = None
             st.session_state.pie_chart = None
-            st.rerun()  # Updated to st.rerun()
+            st.rerun()
 
     # Job description input
-    st.subheader("Job Description")
-    st.session_state.job_description = st.text_input("Enter the job description (e.g., 'Data engineer requires python, spark, 5 years+')", value=st.session_state.job_description)
+    with st.container():
+        st.subheader("Job Description")
+        st.session_state.job_description = st.text_input("Enter the job description (e.g., 'Data engineer requires python, spark, 5 years+')", value=st.session_state.job_description)
 
     # Analyze button
     if st.button("Analyze"):
-        resumes = [resume.strip() for resume in st.session_state.resumes[:num_resumes]]
+        start_time = time.time()
+        resumes = tuple(resume.strip() for resume in st.session_state.resumes[:num_resumes])  # Use tuple for cache stability
         job_description = st.session_state.job_description.strip()
 
         valid_resumes = []
@@ -477,39 +472,42 @@ def main():
             st.error(f"Job Description: {validation_error}")
 
         if valid_resumes and job_description:
-            # Extract job skills
             job_skills_set = extract_skills(job_description)
-
-            # Tokenize inputs
-            bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs(valid_resumes, job_description, st.session_state.models[0], st.session_state.models[2])
-
-            # Classify and summarize
+            bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs(valid_resumes, job_description)
             results = classify_and_summarize_batch(valid_resumes, job_description, bert_tokenized, t5_inputs, t5_tokenized, job_skills_set)
             st.session_state.results = results
-
-            # Generate skill frequency pie chart
             pie_chart = generate_skill_pie_chart(valid_resumes)
             st.session_state.pie_chart = pie_chart
 
+        st.session_state.total_analyze_time = time.time() - start_time
+        # Log timing for debugging
+        st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
+        st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
+        st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
+        st.write(f"Extract Skills Time: {getattr(st.session_state, 'extract_skills_time', 0):.2f} seconds")
+        st.write(f"Classify/Summarize Time: {getattr(st.session_state, 'classify_summarize_time', 0):.2f} seconds")
+        st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
+
     # Display results
     if st.session_state.results:
-        st.subheader("Results")
-        df = pd.DataFrame(st.session_state.results)
-        st.dataframe(df, use_container_width=True)
+        with st.container():
+            st.subheader("Results")
+            df = pd.DataFrame(st.session_state.results)
+            st.dataframe(df, use_container_width=True)
 
-        # Download results as CSV
-        csv = df.to_csv(index=False)
-        st.download_button(
-            label="Download Results as CSV",
-            data=csv,
-            file_name="resume_screening_results.csv",
-            mime="text/csv",
-        )
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="Download Results as CSV",
+                data=csv,
+                file_name="resume_screening_results.csv",
+                mime="text/csv",
+            )
 
     # Display pie chart
     if st.session_state.pie_chart:
-        st.subheader("Skill Frequency Across Resumes")
-        st.pyplot(st.session_state.pie_chart)
+        with st.container():
+            st.subheader("Skill Frequency Across Resumes")
+            st.pyplot(st.session_state.pie_chart)
     elif st.session_state.results and not st.session_state.pie_chart:
         st.warning("No recognized data/tech skills found in the resumes to generate a pie chart.")
 
