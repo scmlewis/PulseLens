@@ -1,5 +1,5 @@
 # app.py
-# Optimized Streamlit Application for Resume Screening with Multiple Resumes, Professional Theme, and Dark Mode Support
+# Optimized Streamlit Application for Resume Screening with Multiple Resumes
 
 import streamlit as st
 from transformers import BertTokenizer, BertForSequenceClassification, T5Tokenizer, T5ForConditionalGeneration
@@ -8,14 +8,39 @@ import numpy as np
 import re
 import io
 import matplotlib.pyplot as plt
-import time
-import pandas as pd
+import PyPDF2
+from docx import Document
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
 
-# Compile regex patterns once for efficiency
-skills_pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, [
+# Set sidebar width and make uncollapsible
+st.markdown("""
+    <style>
+    .css-1d391kg {  /* Sidebar */
+        width: 350px !important;
+    }
+    [data-testid="stSidebarCollapseButton"] {  /* Hide toggle button */
+        display: none !important;
+    }
+    .stSidebar {  /* Ensure sidebar visibility */
+        min-width: 350px !important;
+        visibility: visible !important;
+    }
+    [data-testid="stExpander"] summary {  /* Expander headers */
+        font-size: 26px !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1) !important;
+        white-space: nowrap !important;
+    }
+    .st-expander-content p {  /* Expander body text */
+        font-size: 12px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Skills list (79 skills from Application_Demo.ipynb)
+skills_list = [
     'python', 'sql', 'c++', 'java', 'tableau', 'machine learning', 'data analysis',
     'business intelligence', 'r', 'tensorflow', 'pandas', 'spark', 'scikit-learn', 'aws',
     'javascript', 'scala', 'go', 'ruby', 'pytorch', 'keras', 'deep learning', 'nlp',
@@ -28,118 +53,67 @@ skills_pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, [
     'cybersecurity', 'project management', 'technical writing', 'business analysis',
     'agile methodologies', 'communication', 'team leadership',
     'databricks', 'synapse', 'delta lake', 'streamlit', 'fastapi', 'graphql', 'mlflow', 'kedro'
-])) + r')\b')
+]
 
-normalize_pattern = re.compile(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects')
+# Precompile regex for skills matching (optimized for single pass)
+skills_pattern = re.compile(r'\b(' + '|'.join(re.escape(skill) for skill in skills_list) + r')\b', re.IGNORECASE)
 
-# Apply custom CSS for layout stability and element styling
-st.markdown("""
-    <style>
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        width: 350px !important;
-        min-width: 350px !important;
-        max-height: 100vh;
-        overflow-y: auto;
-        padding-bottom: 20px;
-    }
-    [data-testid="stSidebarCollapseButton"] {
-        display: none !important;
-    }
+# Helper functions for CV parsing
+def extract_text_from_pdf(file):
+    try:
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text.strip()
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {str(e)}")
+        return ""
 
-    /* Main Content Styling */
-    .block-container {
-        margin-left: 350px;
-    }
-    h2, h3 {
-        color: var(--primaryColor);
-        font-weight: bold;
-        margin-top: 20px;
-    }
+def extract_text_from_docx(file):
+    try:
+        doc = Document(file)
+        text = ""
+        for paragraph in doc.paragraphs:
+            text += paragraph.text + "\n"
+        return text.strip()
+    except Exception as e:
+        st.error(f"Error extracting text from Word document: {str(e)}")
+        return ""
 
-    /* Input Fields */
-    .stTextInput > label {
-        font-weight: bold;
-        font-size: 16px;
-    }
-    .stTextInput > div > input {
-        border: 1px solid var(--secondaryBackgroundColor);
-        border-radius: 5px;
-        padding: 8px;
-        font-size: 14px;
-    }
-    .stTextInput > div > input::placeholder {
-        color: #888888;
-    }
+def extract_text_from_file(uploaded_file):
+    if uploaded_file.name.endswith('.pdf'):
+        return extract_text_from_pdf(uploaded_file)
+    elif uploaded_file.name.endswith('.docx'):
+        return extract_text_from_docx(uploaded_file)
+    else:
+        st.error("Unsupported file format. Please upload a PDF or Word (.docx) document.")
+        return ""
 
-    /* Buttons */
-    .stButton > button {
-        border-radius: 5px;
-        padding: 10px 20px;
-        font-size: 16px;
-        border: none;
-    }
-    .stButton > button:hover {
-        border: 1px solid var(--textColor);
-    }
-
-    /* Results Table */
-    div[data-testid="stDataFrame"] {
-        border: 1px solid var(--secondaryBackgroundColor);
-        border-radius: 5px;
-    }
-    div[data-testid="stDataFrame"] table th {
-        background-color: var(--primaryColor);
-        color: var(--textColor);
-        font-weight: bold;
-    }
-    div[data-testid="stDataFrame"] table td {
-        color: var(--textColor);
-    }
-
-    /* Alerts */
-    .stAlert {
-        border-radius: 5px;
-    }
-
-    /* Pie Chart Section */
-    .stPlotlyChart, .stImage {
-        border-radius: 5px;
-        padding: 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Theme toggle button
-def toggle_theme():
-    current_theme = st.config.get_option("theme.base")
-    new_theme = "dark" if current_theme == "light" else "light"
-    st.config.set_option("theme.base", new_theme)
-    st.rerun()
-
-# Place the toggle button in the main content area (top-right)
-col1, col2 = st.columns([9, 1])
-with col2:
-    if st.button(f"Switch to {'Dark' if st.config.get_option('theme.base') == 'light' else 'Light'} Mode", key="theme_toggle"):
-        toggle_theme()
-
-# Helper functions
+# Helper functions for analysis
 def normalize_text(text):
     text = text.lower()
-    return normalize_pattern.sub('', text)
+    # Remove underscores, hyphens, and specific phrases, replacing with empty string
+    text = re.sub(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects', '', text)
+    return text
 
 def check_experience_mismatch(resume, job_description):
     resume_match = re.search(r'(\d+)\s*years?|senior', resume.lower())
-    job_match = re.search(r'(\d+)\s*years?\+|senior\+', job_description.lower())
+    # Allow optional words like "experience" between "years" and "+"
+    job_match = re.search(r'(\d+)\s*years?(?:\s+\w+)*\+|senior\+', job_description.lower())
     if resume_match and job_match:
         resume_years = resume_match.group(0)
         job_years = job_match.group(0)
+        # Handle resume years
         if 'senior' in resume_years:
             resume_num = 10
         else:
             resume_num = int(resume_match.group(1))
+        # Handle job years
         if 'senior+' in job_years:
-            job_num = 10
+            job_num = 10 
         else:
             job_num = int(job_match.group(1))
         if resume_num < job_num:
@@ -150,9 +124,7 @@ def validate_input(text, is_resume=True):
     if not text.strip() or len(text.strip()) < 10:
         return "Input is too short (minimum 10 characters)."
     text_normalized = normalize_text(text)
-    text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
-    found_skill = bool(skills_pattern.search(text_normalized))
-    if is_resume and not found_skill:
+    if is_resume and not skills_pattern.search(text_normalized):
         return "Please include at least one data/tech skill (e.g., python, sql, databricks)."
     if is_resume and not re.search(r'\d+\s*year(s)?|senior', text.lower()):
         return "Please include experience (e.g., '3 years experience' or 'senior')."
@@ -160,162 +132,128 @@ def validate_input(text, is_resume=True):
 
 @st.cache_resource
 def load_models():
-    start_time = time.time()
     bert_model_path = 'scmlewis/bert-finetuned-isom5240'
-    try:
-        bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
-        bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
-        t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
-        t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
-    except Exception as e:
-        st.error(f"Error loading models: {str(e)}")
-        raise e
+    bert_tokenizer = BertTokenizer.from_pretrained(bert_model_path)
+    bert_model = BertForSequenceClassification.from_pretrained(bert_model_path, num_labels=2)
+    t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
     device = torch.device('cpu')  # CPU for lightweight deployment
     bert_model.to(device)
     t5_model.to(device)
     bert_model.eval()
     t5_model.eval()
-    st.session_state.load_models_time = time.time() - start_time
     return bert_tokenizer, bert_model, t5_tokenizer, t5_model, device
 
 @st.cache_data
-def tokenize_inputs(resumes, job_description):
+def tokenize_inputs(resumes, job_description, _bert_tokenizer, _t5_tokenizer):
     """Precompute tokenized inputs for BERT and T5."""
-    bert_tokenizer, _, t5_tokenizer, _, _ = st.session_state.models
-    start_time = time.time()
-    
     job_description_norm = normalize_text(job_description)
     bert_inputs = [f"resume: {normalize_text(resume)} [sep] job: {job_description_norm}" for resume in resumes]
-    bert_tokenized = bert_tokenizer(bert_inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
+    bert_tokenized = _bert_tokenizer(bert_inputs, return_tensors='pt', padding=True, truncation=True, max_length=64)
     
     t5_inputs = []
     for resume in resumes:
         prompt = re.sub(r'\b[Cc]\+\+\b', 'c++', resume)
         prompt_normalized = normalize_text(prompt)
         t5_inputs.append(f"summarize: {prompt_normalized}")
-    t5_tokenized = t5_tokenizer(t5_inputs, return_tensors='pt', padding=True, truncation=True, max_length=128)
+    t5_tokenized = _t5_tokenizer(t5_inputs, return_tensors='pt', padding=True, truncation=True, max_length=64)
     
-    st.session_state.tokenize_time = time.time() - start_time
     return bert_tokenized, t5_inputs, t5_tokenized
 
 @st.cache_data
 def extract_skills(text):
     """Extract skills from text in a single pass."""
-    start_time = time.time()
     text_normalized = normalize_text(text)
     text_normalized = re.sub(r'[,_-]', ' ', text_normalized)
     found_skills = skills_pattern.findall(text_normalized)
-    st.session_state.extract_skills_time = time.time() - start_time
     return set(found_skills)
 
 @st.cache_data
-def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_input, _t5_tokenized, _job_skills_set):
-    """Process one resume at a time to reduce CPU load with a timeout."""
-    _, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
-    start_time = time.time()
-    timeout = 60  # Timeout after 60 seconds
+def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_inputs, _t5_tokenized, _job_skills_set):
+    bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
+    bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
     
-    try:
-        bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
-        with torch.no_grad():
-            # BERT inference
-            bert_start = time.time()
-            outputs = bert_model(**bert_tokenized)
-            if time.time() - bert_start > timeout:
-                raise TimeoutError("BERT inference timed out")
-        
-        logits = outputs.logits
-        probabilities = torch.softmax(logits, dim=1).cpu().numpy()
-        predictions = np.argmax(probabilities, axis=1)
-        
-        confidence_threshold = 0.85
-        
-        t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
-        with torch.no_grad():
-            # T5 inference
-            t5_start = time.time()
-            t5_outputs = t5_model.generate(
-                t5_tokenized['input_ids'],
-                attention_mask=t5_tokenized['attention_mask'],
-                max_length=30,
-                min_length=8,
-                num_beams=4,
-                no_repeat_ngram_size=3,
-                length_penalty=3.0,
-                early_stopping=True
-            )
-            if time.time() - t5_start > timeout:
-                raise TimeoutError("T5 inference timed out")
-        summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
-        summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
-        
-        prob, pred, summary, t5_input = probabilities[0], predictions[0], summaries[0], _t5_input
+    # BERT inference (batched)
+    with torch.no_grad():
+        outputs = bert_model(**bert_tokenized)
+    
+    logits = outputs.logits
+    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+    predictions = np.argmax(probabilities, axis=1)
+    
+    confidence_threshold = 0.85
+    results = []
+    
+    # Batch T5 inference for all resumes
+    t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
+    with torch.no_grad():
+        t5_outputs = t5_model.generate(
+            t5_tokenized['input_ids'],
+            attention_mask=t5_tokenized['attention_mask'],
+            max_length=30,
+            min_length=8,
+            num_beams=2,
+            no_repeat_ngram_size=3,
+            length_penalty=2.0,
+            early_stopping=True
+        )
+    summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
+    summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
+    
+    for i, (resume, prob, pred, summary, t5_input) in enumerate(zip(resumes, probabilities, predictions, summaries, _t5_inputs)):
+        # Compute skill overlap
         resume_skills_set = extract_skills(resume)
         skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
 
-        if prob[pred] < confidence_threshold:
-            suitability = "Uncertain"
-            warning = f"Low confidence: {prob[pred]:.4f}"
+        # Step 1: Check skill irrelevance
+        if skill_overlap < 0.4:
+            suitability = "Irrelevant"
+            warning = "Skills are irrelevant"
         else:
-            if skill_overlap < 0.4:
-                suitability = "Irrelevant"
-                warning = "Skills are irrelevant"
+            # Step 2: Check experience mismatch (takes precedence)
+            exp_warning = check_experience_mismatch(resume, job_description)
+            if exp_warning:
+                suitability = "Uncertain"
+                warning = exp_warning
             else:
-                suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
-                warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
-
-                exp_warning = check_experience_mismatch(resume, job_description)
-                if exp_warning:
+                # Step 3: Check model confidence
+                if prob[pred] < confidence_threshold:
                     suitability = "Uncertain"
-                    warning = exp_warning
+                    warning = f"Low confidence: {prob[pred]:.4f}"
+                else:
+                    # Step 4: Determine suitability based on skill overlap
+                    suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
+                    warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
         
-        skills = list(set(skills_pattern.findall(t5_input)))
+        # Post-process T5 summary for all resumes (Relevant, Uncertain, or Irrelevant)
+        skills = list(set(skills_pattern.findall(t5_input)))  # Deduplicate skills
         exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
         if skills and exp_match:
             summary = f"{', '.join(skills)} proficiency, {exp_match.group(0)} experience"
         else:
             summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
         
-        result = {
+        results.append({
+            "Resume": f"Resume {st.session_state.resumes.index(resume)+1}",
             "Suitability": suitability,
             "Data/Tech Related Skills Summary": summary,
-            "Warning": warning or "None",
-            "Inference Time": time.time() - start_time
-        }
-        
-        st.session_state.classify_summarize_time = time.time() - start_time
-        return result
-    except TimeoutError as e:
-        st.warning(f"Skipped processing for resume due to timeout: {str(e)}")
-        return {
-            "Suitability": "Error",
-            "Data/Tech Related Skills Summary": "Processing timed out",
-            "Warning": str(e),
-            "Inference Time": time.time() - start_time
-        }
-    except Exception as e:
-        st.error(f"Error during inference for resume: {str(e)}")
-        return {
-            "Suitability": "Error",
-            "Data/Tech Related Skills Summary": "Failed to process",
-            "Warning": str(e),
-            "Inference Time": time.time() - start_time
-        }
+            "Warning": warning or "None"
+        })
+    
+    return results
 
 @st.cache_data
 def generate_skill_pie_chart(resumes):
-    """Generate a pie chart of skill frequency across resumes."""
-    start_time = time.time()
     skill_counts = {}
     total_resumes = len([r for r in resumes if r.strip()])
     
     if total_resumes == 0:
         return None
     
+    # Count skills that appear in resumes
     for resume in resumes:
         if resume.strip():
             resume_lower = normalize_text(resume)
-            resume_lower = re.sub(r'[,_-]', ' ', resume_lower)
             found_skills = skills_pattern.findall(resume_lower)
             for skill in found_skills:
                 skill_counts[skill] = skill_counts.get(skill, 0) + 1
@@ -330,226 +268,204 @@ def generate_skill_pie_chart(resumes):
     colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
     ax.axis('equal')
-    plt.title("Skill Frequency Across Resumes", fontsize=12, pad=10)
-    
-    st.session_state.pie_chart_time = time.time() - start_time
+    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#007BFF', pad=10)
     return fig
-
-def render_sidebar():
-    """Render sidebar content."""
-    with st.sidebar:
-        st.markdown("""
-            <h1 style='text-align: center; font-size: 32px; margin-bottom: 10px;'>📄 Resume Screening Assistant for Databricks</h1>
-            <p style='text-align: center; font-size: 16px; margin-top: 0;'>
-                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description, providing suitability classifications, skill summaries, and a skill frequency visualization.
-            </p>
-        """, unsafe_allow_html=True)
-
-        # Persist expander states
-        if 'expander1' not in st.session_state:
-            st.session_state.expander1 = True
-        if 'expander2' not in st.session_state:
-            st.session_state.expander2 = False
-        if 'expander3' not in st.session_state:
-            st.session_state.expander3 = False
-        if 'expander4' not in st.session_state:
-            st.session_state.expander4 = False
-
-        with st.expander("How to Use the App", expanded=st.session_state.expander1):
-            st.session_state.expander1 = True
-            st.markdown("""
-                - Enter up to 5 candidate resumes in the text boxes below, listing data/tech skills and experience (e.g., "Expert in python, databricks, 6 years experience").
-                - Enter the job description, specifying required skills and experience (e.g., "Data engineer requires python, spark, 5 years+").
-                - Click the "Analyze" button to evaluate all non-empty resumes (at least one resume required).
-                - Use the "Add Resume" or "Remove Resume" buttons to adjust the number of resume fields (1-5).
-                - Use the "Reset" button to clear all inputs and results.
-                - Results can be downloaded as a CSV file for record-keeping.
-                - View the skill frequency pie chart to see the distribution of skills across resumes.
-            """)
-
-        with st.expander("Example Test Cases", expanded=st.session_state.expander2):
-            st.session_state.expander2 = True
-            st.markdown("""
-                - **Test Case 1**:
-                    - Resume 1: "Expert in python, machine learning, tableau, 4 years experience"
-                    - Resume 2: "Skilled in sql, pandas, 2 years experience"
-                    - Resume 3: "Proficient in java, python, 5 years experience"
-                    - Job Description: "Data scientist requires python, machine learning, 3 years+"
-                - **Test Case 2**:
-                    - Resume 1: "Skilled in databricks, spark, python, 6 years experience"
-                    - Resume 2: "Expert in sql, tableau, business intelligence, 3 years experience"
-                    - Resume 3: "Proficient in rust, langchain, 2 years experience"
-                    - Job Description: "Data engineer requires python, spark, 5 years+"
-            """)
-
-        with st.expander("Guidelines", expanded=st.session_state.expander3):
-            st.session_state.expander3 = True
-            st.markdown("""
-                - Use comma-separated skills from a comprehensive list including python, sql, databricks, etc. (79 skills supported, see Project Report for full list).
-                - Include experience in years (e.g., "3 years experience" or "1 year experience") or as "senior".
-                - Focus on data/tech skills for accurate summarization.
-                - Resumes with only irrelevant skills (e.g., sales, marketing) will be classified as "Irrelevant".
-            """)
-
-        with st.expander("Classification Criteria", expanded=st.session_state.expander4):
-            st.session_state.expander4 = True
-            st.markdown("""
-                Resumes are classified based on:
-                - **Skill Overlap**: The resume's data/tech skills are compared to the job's requirements. A skill overlap below 40% results in an "Irrelevant" classification.
-                - **Model Confidence**: A finetuned BERT model evaluates skill relevance. If confidence is below 85%, the classification is "Uncertain".
-                - **Experience Match**: The resume's experience (in years or seniority) must meet or exceed the job's requirement.
-
-                **Outcomes**:
-                - **Relevant**: Skill overlap ≥ 50%, sufficient experience, and high model confidence (≥ 85%).
-                - **Irrelevant**: Skill overlap < 40% or high confidence in low skill relevance.
-                - **Uncertain**: Skill overlap ≥ 50% but experience mismatch (e.g., resume has 2 years, job requires 5 years+), or low model confidence (< 85%).
-
-                **Note**: An experience mismatch warning is shown if the resume's experience is below the job's requirement, overriding the skill overlap and confidence to classify as Uncertain.
-            """)
 
 def main():
     """Main function to run the Streamlit app for resume screening."""
-    # Render sidebar
-    render_sidebar()
+    # Streamlit interface
+    with st.sidebar:
+        st.markdown("""
+            <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
+            <p style='text-align: center; font-size: 16px; margin-top: 0;'>
+                Welcome to our AI-powered resume screening tool, specialized for data science and tech roles! This app evaluates multiple resumes against a single job description to determine suitability, providing concise summaries of key data and tech skills and experience. Built with advanced natural language processing, it ensures accurate and efficient screening for technical positions. <br><br><strong>Note:</strong> Performance may vary due to server load on free CPU instances.
+            </p>
+        """, unsafe_allow_html=True)
+        
+        with st.expander("📋 How to Use the App", expanded=True):
+            st.markdown("""
+                **Instructions**:
+                - Upload a PDF or Word (.docx) CV or manually enter up to 5 candidate resumes in the text boxes, listing data/tech skills and experience (e.g., "Expert in python, databricks, 6 years experience").
+                - Enter the job description, specifying required skills and experience (e.g., "Data engineer requires python, spark, 5 years+").
+                - Click **Analyze** to evaluate all non-empty resumes (at least one required).
+                - Use **Add Resume** or **Remove Resume** to adjust the number of resume fields (1–5).
+                - Use the **Reset** button to clear all inputs and results.
+                - Download results as a CSV file for record-keeping.
+                - View the skill frequency pie chart to see skill distribution across resumes.
+                - Example test cases:
+                  - **Test Case 1**: Resumes like "Expert in python, machine learning, tableau, 4 years experience" against "Data scientist requires python, machine learning, 3 years+".
+                  - **Test Case 2**: Resumes like "Skilled in databricks, spark, python, 6 years experience" against "Data engineer requires python, spark, 5 years+".
 
-    # Initialize session state
-    if 'models' not in st.session_state:
-        st.session_state.models = load_models()
+                **Guidelines**:
+                - Use comma-separated skills from a comprehensive list including python, sql, databricks, etc. (79 skills supported).
+                - Include experience in years (e.g., "3 years experience" or "1 year experience") or as "senior".
+                - Focus on data/tech skills for accurate summarization.
+                - Resumes with only irrelevant skills (e.g., sales, marketing) will be classified as "Irrelevant".
+                - If uploading a CV, ensure it’s a text-based PDF or Word document (scanned PDFs may not work).
+            """)
+        with st.expander("ℹ️ Classification Criteria", expanded=True):
+            st.markdown("""
+                The app classifies resumes based on:
+                - **Skill Overlap**: The resume’s data/tech skills are compared to the job’s requirements. A skill overlap below 40% results in an "Irrelevant" classification.
+                - **Model Confidence**: A finetuned BERT model evaluates skill relevance. If confidence is below 85%, the classification is "Uncertain".
+                - **Experience Match**: The resume’s experience (in years or seniority) must meet or exceed the job’s requirement.
+
+                **Outcomes**:
+                - **Relevant**: Skill overlap ≥ 50%, sufficient experience, and high model confidence (≥85%).
+                - **Irrelevant**: Skill overlap < 40% or high confidence in low skill relevance.
+                - **Uncertain**: Skill overlap ≥ 50% but experience mismatch (e.g., resume has 2 years, job requires 5 years+), or low model confidence (<85%).
+
+                **Note**: An experience mismatch warning is shown if the resume’s experience is below the job’s requirement, overriding the skill overlap and confidence to classify as Uncertain.
+            """)
+
+    # Input form
+    st.markdown("### 📝 Enter Resumes")
     if 'resumes' not in st.session_state:
-        st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience"] + [""] * 4  # Prefill first resume with Test Case 1
-    if 'num_resumes' not in st.session_state:
-        st.session_state.num_resumes = 3  # Default to 3 textboxes
-    if 'job_description' not in st.session_state:
-        st.session_state.job_description = "Data scientist requires python, machine learning, 3 years+"  # Prefill with Test Case 1
+        st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience", "", ""]
+    if 'input_job_description' not in st.session_state:
+        st.session_state.input_job_description = "Data scientist requires python, machine learning, 3 years+"
     if 'results' not in st.session_state:
-        st.session_state.results = None
-    if 'pie_chart' not in st.session_state:
-        st.session_state.pie_chart = None
-    if 'total_analyze_time' not in st.session_state:
-        st.session_state.total_analyze_time = 0  # Initialize to avoid AttributeError
-    if 'classify_summarize_time' not in st.session_state:
-        st.session_state.classify_summarize_time = 0
+        st.session_state.results = []
+    if 'valid_resumes' not in st.session_state:
+        st.session_state.valid_resumes = []
+    if 'models' not in st.session_state:
+        st.session_state.models = None
 
-    # Resume input fields
-    with st.container():
-        st.subheader("Candidate Resumes")
-        num_resumes = st.session_state.num_resumes
-        for i in range(num_resumes):
-            placeholder = "e.g., 'Expert in python, databricks, 6 years experience'" if i == 0 else "Enter candidate resume (optional)"
-            st.session_state.resumes[i] = st.text_input(f"Resume {i+1}", value=st.session_state.resumes[i], key=f"resume_{i}", placeholder=placeholder)
+    # Resume inputs with file upload and manual text input
+    for i in range(len(st.session_state.resumes)):
+        st.markdown(f"**Resume {i+1}**")
+        uploaded_file = st.file_uploader(f"Upload CV (PDF or Word) for Resume {i+1}", type=['pdf', 'docx'], key=f"file_upload_{i}")
+        
+        if uploaded_file is not None:
+            extracted_text = extract_text_from_file(uploaded_file)
+            if extracted_text:
+                st.session_state.resumes[i] = extracted_text
+            else:
+                st.session_state.resumes[i] = ""
 
-    # Buttons to add/remove resume fields
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        if st.button("Add Resume") and num_resumes < 5:
-            st.session_state.num_resumes += 1
-            st.session_state.results = None  # Clear previous results
-            st.session_state.pie_chart = None
+        st.session_state.resumes[i] = st.text_area(
+            f"Enter or edit resume text",
+            value=st.session_state.resumes[i],
+            height=100,
+            key=f"resume_{i}",
+            placeholder="e.g., Expert in python, sql, 3 years experience"
+        )
+        validation_error = validate_input(st.session_state.resumes[i], is_resume=True)
+        if validation_error and st.session_state.resumes[i].strip():
+            st.warning(f"Resume {i+1}: {validation_error}")
+
+    # Add/Remove resume buttons
+    col_add, col_remove, _ = st.columns([1, 1, 3])
+    with col_add:
+        if st.button("Add Resume") and len(st.session_state.resumes) < 5:
+            st.session_state.resumes.append("")
             st.rerun()
-    with col2:
-        if st.button("Remove Resume") and num_resumes > 1:
-            st.session_state.num_resumes -= 1
-            st.session_state.resumes[num_resumes] = ""  # Clear the removed field
-            st.session_state.results = None  # Clear previous results
-            st.session_state.pie_chart = None
-            st.rerun()
-    with col3:
-        if st.button("Reset"):
-            st.session_state.num_resumes = 3
-            st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience"] + [""] * 4
-            st.session_state.job_description = "Data scientist requires python, machine learning, 3 years+"
-            st.session_state.results = None
-            st.session_state.pie_chart = None
+    with col_remove:
+        if st.button("Remove Resume") and len(st.session_state.resumes) > 1:
+            st.session_state.resumes.pop()
             st.rerun()
 
     # Job description input
-    with st.container():
-        st.subheader("Job Description")
-        st.session_state.job_description = st.text_input(
-            "Enter the job description",
-            value=st.session_state.job_description,
-            placeholder="e.g., 'Data engineer requires python, spark, 5 years+'"
-        )
+    st.markdown("### 📋 Enter Job Description")
+    job_description = st.text_area(
+        "Job Description",
+        value=st.session_state.input_job_description,
+        height=100,
+        key="job_description",
+        placeholder="e.g., Data scientist requires python, sql, 3 years+"
+    )
+    validation_error = validate_input(job_description, is_resume=False)
+    if validation_error and job_description.strip():
+        st.warning(f"Job Description: {validation_error}")
 
-    # Analyze button with loading spinner and global timeout
-    if st.button("Analyze"):
-        with st.spinner("Analyzing resumes... This may take a moment depending on server load."):
-            start_time = time.time()
-            global_timeout = 180  # Global timeout of 3 minutes for all resumes
-            resumes = tuple(resume.strip() for resume in st.session_state.resumes[:num_resumes])  # Use tuple for cache stability
-            job_description = st.session_state.job_description.strip()
+    # Analyze and Reset buttons
+    col_btn1, col_btn2, _ = st.columns([1, 1, 3])
+    with col_btn1:
+        analyze_clicked = st.button("Analyze", type="primary")
+    with col_btn2:
+        reset_clicked = st.button("Reset")
 
-            valid_resumes = []
-            for i, resume in enumerate(resumes):
-                validation_error = validate_input(resume, is_resume=True)
-                if validation_error and resume:
-                    st.error(f"Resume {i+1}: {validation_error}")
-                elif resume:
-                    valid_resumes.append(resume)
+    # Handle reset
+    if reset_clicked:
+        st.session_state.resumes = ["", "", ""]
+        st.session_state.input_job_description = ""
+        st.session_state.results = []
+        st.session_state.valid_resumes = []
+        st.rerun()
 
-            validation_error = validate_input(job_description, is_resume=False)
-            if validation_error and job_description:
-                st.error(f"Job Description: {validation_error}")
+    # Handle analysis with early validation and lazy model loading
+    if analyze_clicked:
+        # Early validation of inputs
+        valid_resumes = []
+        for i, resume in enumerate(st.session_state.resumes):
+            validation_error = validate_input(resume, is_resume=True)
+            if not validation_error and resume.strip():
+                valid_resumes.append(resume)
+            elif validation_error and resume.strip():
+                st.warning(f"Resume {i+1}: {validation_error}")
 
-            if valid_resumes and job_description:
-                try:
-                    job_skills_set = extract_skills(job_description)
-                    results = []
-                    for i, resume in enumerate(valid_resumes):
-                        if time.time() - start_time > global_timeout:
-                            st.error("Analysis timed out after 3 minutes. Please try again or deploy on a different platform.")
-                            break
-                        st.write(f"Processing {resume[:50]}...")  # Log progress
-                        bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs([resume], job_description)
-                        result = classify_and_summarize_batch(resume, job_description, bert_tokenized, t5_inputs[0], t5_tokenized, job_skills_set)
-                        result["Resume"] = f"Resume {i+1}"
-                        results.append(result)
-                    st.session_state.results = results
-                    pie_chart = generate_skill_pie_chart(valid_resumes)
-                    st.session_state.pie_chart = pie_chart
-                except Exception as e:
-                    st.error(f"Failed to process resumes: {str(e)}")
-                    st.session_state.results = None
-                    st.session_state.pie_chart = None
+        validation_error = validate_input(job_description, is_resume=False)
+        if validation_error and job_description.strip():
+            st.warning(f"Job Description: {validation_error}")
 
-            st.session_state.total_analyze_time = time.time() - start_time
-            # Detailed timing logs
-            st.write(f"Total Analyze Time: {st.session_state.total_analyze_time:.2f} seconds")
-            st.write(f"Model Load Time: {getattr(st.session_state, 'load_models_time', 0):.2f} seconds")
-            st.write(f"Tokenize Time: {getattr(st.session_state, 'tokenize_time', 0):.2f} seconds")
-            st.write(f"Extract Skills Time: {getattr(st.session_state, 'extract_skills_time', 0):.2f} seconds")
-            if st.session_state.results:
-                for idx, result in enumerate(st.session_state.results):
-                    st.write(f"Inference Time for {result['Resume']}: {result['Inference Time']:.2f} seconds")
-            st.write(f"Pie Chart Time: {getattr(st.session_state, 'pie_chart_time', 0):.2f} seconds")
+        if valid_resumes and job_description.strip():
+            # Load models only when needed
+            if st.session_state.models is None:
+                with st.spinner("Loading models, please wait..."):
+                    st.session_state.models = load_models()
 
-            # Performance note
-            if st.session_state.total_analyze_time > 60:
-                st.warning("The runtime is longer than expected due to server load on Hugging Face Spaces. For a smoother experience, consider testing locally or deploying on a different platform (e.g., Streamlit Community Cloud or a personal server).")
+            st.session_state.results = []
+            st.session_state.valid_resumes = valid_resumes
+            total_steps = len(valid_resumes)
+            
+            with st.spinner("Analyzing resumes..."):
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                status_text.text("Preparing inputs...")
+                
+                # Retrieve tokenizers from st.session_state.models
+                bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
+                
+                # Precompute tokenized inputs and job skills
+                bert_tokenized, t5_inputs, t5_tokenized = tokenize_inputs(valid_resumes, job_description, bert_tokenizer, t5_tokenizer)
+                job_skills_set = extract_skills(job_description)
+                
+                status_text.text("Classifying and summarizing resumes...")
+                results = classify_and_summarize_batch(valid_resumes, job_description, bert_tokenized, t5_inputs, t5_tokenized, job_skills_set)
+                progress_bar.progress(1.0)
+                
+                st.session_state.results = results
+                
+                status_text.empty()
+                progress_bar.empty()
+                st.success("Analysis completed! 🎉")
+        else:
+            st.error("Please enter at least one valid resume and a job description.")
 
     # Display results
     if st.session_state.results:
-        with st.container():
-            st.subheader("Results")
-            df = pd.DataFrame(st.session_state.results)
-            df = df[["Resume", "Suitability", "Data/Tech Related Skills Summary", "Warning"]]  # Exclude Inference Time from display
-            st.dataframe(df, use_container_width=True)
-
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="Download Results as CSV",
-                data=csv,
-                file_name="resume_screening_results.csv",
-                mime="text/csv",
-            )
-
-    # Display pie chart
-    if st.session_state.pie_chart:
-        with st.container():
-            st.subheader("Skill Frequency Across Resumes")
-            st.pyplot(st.session_state.pie_chart)
-    elif st.session_state.results and not st.session_state.pie_chart:
-        st.warning("No recognized data/tech skills found in the resumes to generate a pie chart.")
+        st.markdown("### 📊 Results")
+        st.table(st.session_state.results)
+        
+        csv_buffer = io.StringIO()
+        csv_buffer.write("Resume Number,Resume Text,Job Description,Suitability,Summary,Warning\n")
+        for i, result in enumerate(st.session_state.results):
+            resume_text = st.session_state.valid_resumes[i].replace('"', '""').replace('\n', ' ')
+            job_text = job_description.replace('"', '""').replace('\n', ' ')
+            csv_buffer.write(f'"{result["Resume"]}","{resume_text}","{job_text}","{result["Suitability"]}","{result["Data/Tech Related Skills Summary"]}","{result["Warning"]}"\n')
+        st.download_button("Download Results", csv_buffer.getvalue(), file_name="resume_analysis.csv", mime="text/csv")
+        
+        with st.expander("📈 Skill Frequency Across Resumes", expanded=False):
+            if st.session_state.valid_resumes:
+                fig = generate_skill_pie_chart(st.session_state.valid_resumes)
+                if fig:
+                    st.pyplot(fig)
+                    plt.close(fig)
+                else:
+                    st.write("No recognized data/tech skills found in the resumes.")
+            else:
+                st.write("No valid resumes to analyze.")
 
 if __name__ == "__main__":
+    # When this module is run directly, call the main function.
     main()
