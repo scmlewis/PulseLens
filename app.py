@@ -10,6 +10,7 @@ import io
 import matplotlib.pyplot as plt
 import PyPDF2
 from docx import Document
+import time
 
 # Set page config as the first Streamlit command
 st.set_page_config(page_title="Resume Screening Assistant for Data/Tech", page_icon="📄", layout="wide")
@@ -169,63 +170,66 @@ def extract_skills(text):
     return set(found_skills)
 
 @st.cache_data
-def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_inputs, _t5_tokenized, _job_skills_set):
-    bert_tokenizer, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
-    bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
+def classify_and_summarize_batch(resume, job_description, _bert_tokenized, _t5_input, _t5_tokenized, _job_skills_set):
+    """Process one resume at a time to reduce CPU load with a timeout."""
+    _, bert_model, t5_tokenizer, t5_model, device = st.session_state.models
+    start_time = time.time()
+    timeout = 60  # Timeout after 60 seconds
     
-    # BERT inference (batched)
-    with torch.no_grad():
-        outputs = bert_model(**bert_tokenized)
-    
-    logits = outputs.logits
-    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
-    predictions = np.argmax(probabilities, axis=1)
-    
-    confidence_threshold = 0.85
-    results = []
-    
-    # Batch T5 inference for all resumes
-    t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
-    with torch.no_grad():
-        t5_outputs = t5_model.generate(
-            t5_tokenized['input_ids'],
-            attention_mask=t5_tokenized['attention_mask'],
-            max_length=30,
-            min_length=8,
-            num_beams=2,
-            no_repeat_ngram_size=3,
-            length_penalty=2.0,
-            early_stopping=True
-        )
-    summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
-    summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
-    
-    for i, (resume, prob, pred, summary, t5_input) in enumerate(zip(resumes, probabilities, predictions, summaries, _t5_inputs)):
-        # Compute skill overlap
+    try:
+        bert_tokenized = {k: v.to(device) for k, v in _bert_tokenized.items()}
+        with torch.no_grad():
+            # BERT inference
+            bert_start = time.time()
+            outputs = bert_model(**bert_tokenized)
+            if time.time() - bert_start > timeout:
+                raise TimeoutError("BERT inference timed out")
+        
+        logits = outputs.logits
+        probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+        predictions = np.argmax(probabilities, axis=1)
+        
+        confidence_threshold = 0.85
+        
+        t5_tokenized = {k: v.to(device) for k, v in _t5_tokenized.items()}
+        with torch.no_grad():
+            # T5 inference
+            t5_start = time.time()
+            t5_outputs = t5_model.generate(
+                t5_tokenized['input_ids'],
+                attention_mask=t5_tokenized['attention_mask'],
+                max_length=30,
+                min_length=8,
+                num_beams=2,
+                no_repeat_ngram_size=3,
+                length_penalty=2.0,
+                early_stopping=True
+            )
+            if time.time() - t5_start > timeout:
+                raise TimeoutError("T5 inference timed out")
+        summaries = [t5_tokenizer.decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True) for output in t5_outputs]
+        summaries = [re.sub(r'\s+', ' ', summary).strip() for summary in summaries]
+        
+        prob, pred, summary, t5_input = probabilities[0], predictions[0], summaries[0], _t5_input
         resume_skills_set = extract_skills(resume)
         skill_overlap = len(_job_skills_set.intersection(resume_skills_set)) / len(_job_skills_set) if _job_skills_set else 0
 
-        # Step 1: Check skill irrelevance
         if skill_overlap < 0.4:
             suitability = "Irrelevant"
             warning = "Skills are irrelevant"
         else:
-            # Step 2: Check experience mismatch (takes precedence)
             exp_warning = check_experience_mismatch(resume, job_description)
             if exp_warning:
                 suitability = "Uncertain"
                 warning = exp_warning
             else:
-                # Step 3: Check model confidence
                 if prob[pred] < confidence_threshold:
                     suitability = "Uncertain"
                     warning = f"Low confidence: {prob[pred]:.4f}"
                 else:
-                    # Step 4: Determine suitability based on skill overlap
                     suitability = "Relevant" if skill_overlap >= 0.5 else "Irrelevant"
                     warning = "Skills are not a strong match" if suitability == "Irrelevant" else None
         
-        # Post-process T5 summary for all resumes (Relevant, Uncertain, or Irrelevant)
         skills = list(set(skills_pattern.findall(t5_input)))  # Deduplicate skills
         exp_match = re.search(r'\d+\s*years?|senior', resume.lower())
         if skills and exp_match:
@@ -233,14 +237,27 @@ def classify_and_summarize_batch(resumes, job_description, _bert_tokenized, _t5_
         else:
             summary = f"{exp_match.group(0) if exp_match else 'unknown'} experience"
         
-        results.append({
-            "Resume": f"Resume {st.session_state.resumes.index(resume)+1}",
+        result = {
             "Suitability": suitability,
             "Data/Tech Related Skills Summary": summary,
             "Warning": warning or "None"
-        })
-    
-    return results
+        }
+        
+        return result
+    except TimeoutError as e:
+        st.warning(f"Skipped processing for resume due to timeout: {str(e)}")
+        return {
+            "Suitability": "Error",
+            "Data/Tech Related Skills Summary": "Processing timed out",
+            "Warning": str(e)
+        }
+    except Exception as e:
+        st.error(f"Error during inference for resume: {str(e)}")
+        return {
+            "Suitability": "Error",
+            "Data/Tech Related Skills Summary": "Failed to process",
+            "Warning": str(e)
+        }
 
 @st.cache_data
 def generate_skill_pie_chart(resumes):
@@ -271,9 +288,8 @@ def generate_skill_pie_chart(resumes):
     plt.title("Skill Frequency Across Resumes", fontsize=12, color='#007BFF', pad=10)
     return fig
 
-def main():
-    """Main function to run the Streamlit app for resume screening."""
-    # Streamlit interface
+def render_sidebar():
+    """Render sidebar content."""
     with st.sidebar:
         st.markdown("""
             <h1 style='text-align: center; color: #007BFF; font-size: 32px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); margin-bottom: 10px;'>💻 Resume Screening Assistant for Data/Tech</h1>
@@ -318,8 +334,12 @@ def main():
                 **Note**: An experience mismatch warning is shown if the resume’s experience is below the job’s requirement, overriding the skill overlap and confidence to classify as Uncertain.
             """)
 
-    # Input form
-    st.markdown("### 📝 Enter Resumes")
+def main():
+    """Main function to run the Streamlit app for resume screening."""
+    # Render sidebar
+    render_sidebar()
+
+    # Initialize session state
     if 'resumes' not in st.session_state:
         st.session_state.resumes = ["Expert in python, machine learning, tableau, 4 years experience", "", ""]
     if 'input_job_description' not in st.session_state:
@@ -332,6 +352,7 @@ def main():
         st.session_state.models = None
 
     # Resume inputs with file upload and manual text input
+    st.markdown("### 📝 Enter Resumes")
     for i in range(len(st.session_state.resumes)):
         st.markdown(f"**Resume {i+1}**")
         uploaded_file = st.file_uploader(f"Upload CV (PDF or Word) for Resume {i+1}", type=['pdf', 'docx'], key=f"file_upload_{i}")
@@ -431,8 +452,20 @@ def main():
                 job_skills_set = extract_skills(job_description)
                 
                 status_text.text("Classifying and summarizing resumes...")
-                results = classify_and_summarize_batch(valid_resumes, job_description, bert_tokenized, t5_inputs, t5_tokenized, job_skills_set)
-                progress_bar.progress(1.0)
+                results = []
+                for i, (resume, bert_tok, t5_in, t5_tok) in enumerate(zip(valid_resumes, bert_tokenized['input_ids'], t5_inputs, t5_tokenized['input_ids'])):
+                    status_text.text(f"Processing Resume {i+1}/{total_steps}: {resume[:50]}...")
+                    result = classify_and_summarize_batch(
+                        resume,
+                        job_description,
+                        {'input_ids': bert_tok.unsqueeze(0), 'attention_mask': bert_tokenized['attention_mask'][i].unsqueeze(0)},
+                        t5_in,
+                        {'input_ids': t5_tok.unsqueeze(0), 'attention_mask': t5_tokenized['attention_mask'][i].unsqueeze(0)},
+                        job_skills_set
+                    )
+                    result["Resume"] = f"Resume {i+1}"
+                    results.append(result)
+                    progress_bar.progress((i + 1) / total_steps)
                 
                 st.session_state.results = results
                 
