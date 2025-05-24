@@ -32,176 +32,96 @@ skills_pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, [
 
 normalize_pattern = re.compile(r'_|-|,\s*collaborated in agile teams|,\s*developed solutions for|,\s*led projects involving|,\s*designed applications with|,\s*built machine learning models for|,\s*implemented data pipelines for|,\s*deployed cloud-based solutions|,\s*optimized workflows for|,\s*contributed to data-driven projects')
 
-# Initialize theme state
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'light'
-
-# Apply custom CSS with dark mode support, background image, and scrollable sidebar
-st.markdown(f"""
+# Apply custom CSS for layout stability and element styling
+st.markdown("""
     <style>
-    /* Define CSS variables for light and dark themes */
-    :root {{
-        --background-color: {'#F5F5F5' if st.session_state.theme == 'light' else '#1E1E1E'};
-        --sidebar-bg: {'#FFFFFF' if st.session_state.theme == 'light' else '#2D2D2D'};
-        --text-color: {'#4A4A4A' if st.session_state.theme == 'light' else '#D3D3D3'};
-        --header-color: #FF3621;
-        --element-bg: {'#FFFFFF' if st.session_state.theme == 'light' else '#333333'};
-        --element-border: {'#E0E0E0' if st.session_state.theme == 'light' else '#444444'};
-        --element-text: {'#4A4A4A' if st.session_state.theme == 'light' else '#D3D3D3'};
-        --element-header-bg: #FF3621;
-        --element-header-text: #FFFFFF;
-        --button-hover-bg: {'#FF6347' if st.session_state.theme == 'light' else '#FF6347'};
-    }}
-
-    /* General App Styling */
-    .stApp {{
-        background-color: var(--background-color);
-        font-family: 'Arial', sans-serif;
-        position: relative;
-        background-image: url('https://images.unsplash.com/photo-1516321313936-161e50f54a4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80'); /* Tech-themed background */
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }}
-
-    /* Dim background image with overlay */
-    .stApp::before {{
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.3); /* Dim overlay */
-        z-index: -1;
-    }}
-
-    /* Ensure content is readable */
-    .stApp > div {{
-        position: relative;
-        z-index: 1;
-    }}
-
     /* Sidebar Styling */
-    [data-testid="stSidebar"] {{
+    [data-testid="stSidebar"] {
         width: 350px !important;
-        background-color: var(--sidebar-bg);
-        border-right: 1px solid var(--element-border);
-        position: fixed;
-        top: 0;
-        left: 0;
-        max-height: 100vh; /* Constrain to viewport height */
-        overflow-y: auto; /* Enable vertical scrolling */
-        padding-bottom: 20px; /* Add padding to prevent content cutoff */
-    }}
-    [data-testid="stSidebarCollapseButton"] {{  /* Hide toggle button */
-        display: none !important;
-    }}
-    .stSidebar {{
         min-width: 350px !important;
-        visibility: visible !important;
-    }}
-    .stSidebar h1 {{
-        color: var(--header-color); /* Databricks orange */
-        font-size: 32px;
-        margin-bottom: 10px;
-    }}
-    .stSidebar p {{
-        color: var(--text-color);
-        font-size: 16px;
-    }}
-
-    /* Expander Styling */
-    [data-testid="stExpander"] summary {{
-        font-size: 26px !important;
-        font-weight: bold !important;
-        color: var(--header-color) !important;
-        white-space: nowrap !important;
-    }}
-    .st-expander-content p {{
-        font-size: 12px !important;
-        color: var(--text-color) !important;
-    }}
+        max-height: 100vh;
+        overflow-y: auto;
+        padding-bottom: 20px;
+    }
+    [data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+    }
 
     /* Main Content Styling */
-    h2, h3 {{
-        color: var(--header-color); /* Databricks orange */
+    .block-container {
+        margin-left: 350px;
+    }
+    h2, h3 {
+        color: var(--primaryColor);
         font-weight: bold;
         margin-top: 20px;
-    }}
+    }
 
     /* Input Fields */
-    .stTextInput > label {{
-        color: var(--text-color);
+    .stTextInput > label {
         font-weight: bold;
         font-size: 16px;
-    }}
-    .stTextInput > div > input {{
-        border: 1px solid var(--element-border);
+    }
+    .stTextInput > div > input {
+        border: 1px solid var(--secondaryBackgroundColor);
         border-radius: 5px;
         padding: 8px;
         font-size: 14px;
-        background-color: var(--element-bg);
-        color: var(--element-text);
-    }}
-    .stTextInput > div > input::placeholder {{
+    }
+    .stTextInput > div > input::placeholder {
         color: #888888;
-    }}
+    }
 
     /* Buttons */
-    .stButton > button {{
-        background-color: var(--header-color); /* Databricks orange */
-        color: #FFFFFF;
+    .stButton > button {
         border-radius: 5px;
         padding: 10px 20px;
         font-size: 16px;
         border: none;
-    }}
-    .stButton > button:hover {{
-        background-color: var(--button-hover-bg); /* Lighter orange for better contrast */
-        border: 1px solid #FFFFFF;
-    }}
+    }
+    .stButton > button:hover {
+        border: 1px solid var(--textColor);
+    }
 
     /* Results Table */
-    .stDataFrame {{
-        border: 1px solid var(--element-border);
+    div[data-testid="stDataFrame"] {
+        border: 1px solid var(--secondaryBackgroundColor);
         border-radius: 5px;
-        background-color: var(--element-bg);
-    }}
-    .stDataFrame table th {{
-        background-color: var(--element-header-bg);
-        color: var(--element-header-text);
+    }
+    div[data-testid="stDataFrame"] table th {
+        background-color: var(--primaryColor);
+        color: var(--textColor);
         font-weight: bold;
-    }}
-    .stDataFrame table td {{
-        color: var(--element-text);
-    }}
+    }
+    div[data-testid="stDataFrame"] table td {
+        color: var(--textColor);
+    }
 
     /* Alerts */
-    .stAlert {{
+    .stAlert {
         border-radius: 5px;
-    }}
+    }
 
     /* Pie Chart Section */
-    .stPlotlyChart, .stImage {{
-        background-color: var(--element-bg);
+    .stPlotlyChart, .stImage {
         border-radius: 5px;
         padding: 10px;
-    }}
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # Theme toggle button
 def toggle_theme():
-    st.session_state.theme = 'dark' if st.session_state.theme == 'light' else 'light'
+    current_theme = st.config.get_option("theme.base")
+    new_theme = "dark" if current_theme == "light" else "light"
+    st.config.set_option("theme.base", new_theme)
+    st.rerun()
 
 # Place the toggle button in the main content area (top-right)
 col1, col2 = st.columns([9, 1])
 with col2:
-    if st.button(f"Switch to {'Dark' if st.session_state.theme == 'light' else 'Light'} Mode", key="theme_toggle"):
+    if st.button(f"Switch to {'Dark' if st.config.get_option('theme.base') == 'light' else 'Light'} Mode", key="theme_toggle"):
         toggle_theme()
-        st.rerun()
 
 # Helper functions
 def normalize_text(text):
@@ -410,7 +330,7 @@ def generate_skill_pie_chart(resumes):
     colors = plt.cm.Blues(np.linspace(0.4, 0.8, len(labels)))
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10})
     ax.axis('equal')
-    plt.title("Skill Frequency Across Resumes", fontsize=12, color='#FF3621', pad=10)
+    plt.title("Skill Frequency Across Resumes", fontsize=12, pad=10)
     
     st.session_state.pie_chart_time = time.time() - start_time
     return fig
