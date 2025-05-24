@@ -1,0 +1,15 @@
+[theme]
+base = "light"
+primaryColor = "#FF3621"
+backgroundColor = "#F5F5F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#4A4A4A"
+font = "sans serif"
+
+[theme.dark]
+base = "dark"
+primaryColor = "#FF3621"
+backgroundColor = "#1E1E1E"
+secondaryBackgroundColor = "#2D2D2D"
+textColor = "#D3D3D3"
+font = "sans serif"
