@@ -2,6 +2,3 @@ streamlit
 transformers
 torch
 pandas
-plotly
-wordcloud
-matplotlib
