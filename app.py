@@ -11,6 +11,13 @@ def load_zero_shot():
 
 classifier = load_zero_shot()
 
+# Expanded aspect suggestions from multiple domains
+SUGGESTED_ASPECTS = [
+    "food", "service", "ambience", "price", "delivery", "product quality", "staff", "support", "design", "usability",
+    "battery", "display", "camera", "performance", "durability", "shipping", "fit", "material", "style", "comfort",
+    "cleanliness", "location", "amenities", "checkout", "variety", "freshness", "customer service", "packaging", "speed",
+    "plot", "characters", "writing", "pacing", "ending", "value", "features", "sound", "wifi", "room", "maintenance"
+]
 DEFAULT_ASPECTS = [
     "food", "service", "ambience", "price", "delivery", "product quality", "staff", "support", "design", "usability"
 ]
@@ -25,20 +32,39 @@ SAMPLE_COMMENTS = [
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
 
+# --- Sidebar with clickable aspect suggestions ---
 st.sidebar.markdown(
     "<h2 style='color:#4F8BF9;'>📝 How to Use</h2>"
     "<ul>"
     "<li>Enter or generate a customer review in the main area.</li>"
-    "<li>Optionally, edit the list of aspects/categories.</li>"
+    "<li>Click suggested aspects to add them to the input below.</li>"
     "<li>Click <b>Classify Review</b> to analyze sentiment and aspect relevance.</li>"
     "<li>Upload a CSV with a <b>review</b> column for batch analysis.</li>"
     "</ul>"
     "<hr>"
-    "<b>Suggested Aspects:</b><br>"
-    "<span style='color:#4F8BF9;'>food, service, ambience, price, delivery, product quality, staff, support, design, usability</span>",
+    "<b>Suggested Aspects (click to add):</b>",
     unsafe_allow_html=True
 )
 
+# Aspect input state
+if "aspects_input" not in st.session_state:
+    st.session_state["aspects_input"] = ", ".join(DEFAULT_ASPECTS)
+
+# Clickable aspect buttons
+aspect_cols = st.sidebar.columns(3)
+for idx, aspect in enumerate(SUGGESTED_ASPECTS):
+    if aspect_cols[idx % 3].button(aspect, key=f"aspect_{aspect}"):
+        current = st.session_state["aspects_input"]
+        aspects_set = set([a.strip() for a in current.split(",") if a.strip()])
+        aspects_set.add(aspect)
+        st.session_state["aspects_input"] = ", ".join(sorted(aspects_set))
+
+st.sidebar.markdown(
+    "<hr><b>Tip:</b> Click any aspect above to add it to your analysis.",
+    unsafe_allow_html=True
+)
+
+# --- Main UI ---
 st.markdown(
     "<h1 style='color:#4F8BF9; font-size:2.5em;'>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>"
     "<hr style='border:1px solid #4F8BF9;'>"
@@ -46,7 +72,17 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-tab1, tab2 = st.tabs(["Single Review", "Batch CSV Reviews"])
+# --- Custom tab buttons with larger font and emoji ---
+tab_style = """
+    <style>
+    .stTabs [data-baseweb="tab"] {
+        font-size: 1.3em !important;
+        padding: 0.5em 1.5em !important;
+    }
+    </style>
+"""
+st.markdown(tab_style, unsafe_allow_html=True)
+tab1, tab2 = st.tabs(["📝 Single Review", "📂 Batch CSV Reviews"])
 
 with tab1:
     st.subheader("Single Review")
@@ -60,7 +96,7 @@ with tab1:
         if st.button("🧹 Clear"):
             st.session_state["review_text"] = ""
     text = st.text_area("Enter a review:", value=st.session_state["review_text"], height=120, key="review_input")
-    aspects = st.text_input("Aspects/Categories (comma-separated):", value=", ".join(DEFAULT_ASPECTS))
+    aspects = st.text_input("Aspects/Categories (comma-separated):", value=st.session_state["aspects_input"], key="aspects_input_box")
     if st.button("🔍 Classify Review"):
         if not text.strip():
             st.info("Please enter a review.")
@@ -90,10 +126,17 @@ with tab1:
 
 with tab2:
     st.subheader("Batch Reviews (CSV)")
+    st.markdown(
+        "<div style='color:#4F8BF9; font-size:1.1em;'><b>Instructions:</b> Upload a CSV file encoded in <b>UTF-8</b> with a header named <code>review</code>. Each row should contain a single review text.</div>",
+        unsafe_allow_html=True
+    )
     csv_file = st.file_uploader("Upload a CSV with a 'review' column:", type=["csv"])
-    aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value=", ".join(DEFAULT_ASPECTS), key="batch")
+    aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value=st.session_state["aspects_input"], key="batch")
     if csv_file:
-        dataframe = pd.read_csv(csv_file)
+        try:
+            dataframe = pd.read_csv(csv_file, encoding="utf-8")
+        except UnicodeDecodeError:
+            dataframe = pd.read_csv(csv_file, encoding="latin1")
         if 'review' not in dataframe.columns:
             st.warning("Your CSV must contain a column named 'review'.")
         else:
@@ -122,4 +165,6 @@ with tab2:
                     file_name="classification_results.csv",
                     mime="text/csv"
                 )
+                # Table remains visible after download
+
 st.markdown("<hr><span style='color:gray;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</span>", unsafe_allow_html=True)
