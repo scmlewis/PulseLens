@@ -1,5 +1,5 @@
 ---
-title: Resume Screening Assistant for Data/Tech
+title: Customer Sentiment Analyzer
 emoji: 🚀
 colorFrom: purple
 colorTo: blue
