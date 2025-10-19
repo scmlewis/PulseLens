@@ -6,7 +6,6 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from io import BytesIO
 from collections import Counter
-import datetime
 
 st.set_page_config(page_title="Customer Feedback Analyzer", page_icon="🧠", layout="wide")
 
@@ -17,7 +16,7 @@ Analyze customer feedback for sentiment, emotion, and key themes.
 - **Single review** or **batch CSV upload**
 - **Sentiment & emotion detection**
 - **Theme extraction** (top keywords)
-- **Visualizations**: Pie chart, trend line, word cloud
+- **Visualizations**: Pie chart, word cloud
 - **Downloadable results**
 """)
 st.sidebar.info("Tip: For best results, use feedback in English. For other languages, try multilingual models.")
@@ -50,12 +49,14 @@ def make_wordcloud(texts):
     return buf
 
 def extract_keywords(texts, top_n=10):
+    # Simple stopwords list
+    stopwords = set([
+        "the", "and", "is", "in", "it", "of", "to", "a", "for", "on", "with", "this", "that", "was", "are", "as", "but", "be", "at", "by", "an", "or", "from"
+    ])
     words = " ".join(texts).lower().split()
-    stopwords = set(pd.read_csv("https://raw.githubusercontent.com/stopwords-iso/stopwords-en/master/stopwords-en.txt", header=None)[0])
     keywords = [w for w in words if w.isalpha() and w not in stopwords]
     return Counter(keywords).most_common(top_n)
 
-# Main UI: Tabs for workflow clarity
 tab1, tab2 = st.tabs(["Single Review", "Batch CSV Analysis"])
 
 with tab1:
@@ -86,7 +87,6 @@ with tab2:
         df = pd.read_csv(file)
         st.write("Columns detected:", list(df.columns))
         col = st.selectbox("Select feedback column", df.columns)
-        date_col = st.selectbox("Select date column (optional for trend)", ["None"] + list(df.columns))
         if st.button("Analyze All Reviews"):
             with st.spinner("Analyzing feedback..."):
                 df["Sentiment"] = df[col].astype(str).apply(lambda t: sentiment_model(t)[0]["label"])
@@ -100,17 +100,6 @@ with tab2:
             pie = px.pie(df, names="Sentiment", title="Sentiment Distribution", color="Sentiment",
                          color_discrete_map={"POSITIVE":"green","NEGATIVE":"red","NEUTRAL":"gray"})
             st.plotly_chart(pie, use_container_width=True)
-
-            # Sentiment trend line chart (if date column selected)
-            if date_col != "None":
-                try:
-                    df["Date"] = pd.to_datetime(df[date_col])
-                    trend = df.groupby([df["Date"].dt.to_period("M"), "Sentiment"]).size().unstack(fill_value=0)
-                    trend.index = trend.index.astype(str)
-                    line = px.line(trend, title="Sentiment Trend Over Time")
-                    st.plotly_chart(line, use_container_width=True)
-                except Exception as e:
-                    st.warning(f"Could not plot trend: {e}")
 
             # Word cloud
             st.subheader("Word Cloud of Feedback")
@@ -126,6 +115,5 @@ with tab2:
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button("Download Results as CSV", data=csv, file_name="feedback_results.csv", mime="text/csv")
 
-# Footer
 st.markdown("---")
 st.markdown("**About:** This app uses Hugging Face Transformers for sentiment and emotion analysis. For feedback or suggestions, contact the developer.")
