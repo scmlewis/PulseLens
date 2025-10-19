@@ -1,8 +1,7 @@
-streamlit==1.38.0
-transformers==4.44.2
-torch==2.5.0
-numpy<2.0.0
-sentencepiece==0.2.0
-matplotlib==3.8.2
-PyPDF2==3.0.1
-python-docx==1.1.2
+streamlit
+transformers
+torch
+pandas
+plotly
+wordcloud
+matplotlib
