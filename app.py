@@ -2,61 +2,28 @@ import streamlit as st
 import pandas as pd
 from transformers import pipeline
 
-st.set_page_config(page_title="Domain-Aware Aspect Sentiment Analyzer", page_icon="🧠", layout="wide")
-
-DOMAIN_MODELS = {
-    "Restaurant": "SayakPaul/Restaurant-ABSA-BART",  # aspects: food, service, ambience, drinks
-    "Electronics": "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-electronics-aspect",  # aspects: battery, display, price, support, shipping
-    "Fashion": "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-fashion-aspect",      # aspects: size, fit, material, delivery, style
-    "Hotel": "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-hotel-aspect",          # aspects: room, staff, location, cleanliness, amenities
-    "Supermarket": "jordiclive/FABSA",   # aspects: product variety, freshness, staff, pricing, checkout, organization
-    "Books": "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-books-aspect",    # aspects: plot, character, pacing, writing, price
-    # Add more domains/models as needed
-}
-
-st.sidebar.header("Domain & Model Selection")
-domain = st.sidebar.selectbox(
-    "Select the context (domain) of feedback:",
-    options=list(DOMAIN_MODELS.keys()),
-    help="Choose the type of product/service being reviewed"
-)
-model_name = DOMAIN_MODELS[domain]
-st.sidebar.markdown(f"**Model:** `{model_name}`")
+st.set_page_config(page_title="Aspect-Based Sentiment Analyzer", page_icon="🧠", layout="wide")
 
 @st.cache_resource
-def load_absa_model(model_name):
-    return pipeline("aspect-based-sentiment-analysis", model=model_name)
+def load_absa_model():
+    return pipeline("aspect-based-sentiment-analysis", model="SayakPaul/Restaurant-ABSA-BART")
 
-try:
-    absa = load_absa_model(model_name)
-    model_loaded = True
-except Exception as e:
-    model_loaded = False
-    st.sidebar.error(f"Error loading model: {e}")
+absa = load_absa_model()
 
 st.title("🧠 Aspect-Based Sentiment Analyzer")
 st.markdown("""
-Analyze reviews for various domains (restaurant, electronics, fashion, hotels, supermarket, books, etc).
-Extract aspects, sentiment polarity, opinions, and aspect categories to understand feedback trends!
+Analyze reviews for aspects, opinions, sentiment polarity, and categories.
+This app uses a robust, public ABSA model suitable for most English feedback.
 """)
 
 tab1, tab2 = st.tabs(["Single Review", "Batch CSV Reviews"])
 
 with tab1:
-    st.subheader(f"Single Review - Context: {domain}")
-    example_texts = {
-        "Restaurant": "The pasta was delicious, but the service was slow and the ambience was noisy.",
-        "Electronics": "Battery life is impressive but the display is too dim in sunlight.",
-        "Fashion": "Dress material is fantastic, but sizing runs small.",
-        "Hotel": "Lovely staff and clean rooms, location a bit far from the city center.",
-        "Supermarket": "Great variety of fresh fruits, but checkout lines are too long.",
-        "Books": "The plot was engaging but character development was weak."
-    }
-    text = st.text_area("Enter a review:", value=example_texts.get(domain, ""), height=100)
+    st.subheader("Single Review")
+    example = "The pasta was delicious, but the service was slow and the ambience was noisy."
+    text = st.text_area("Enter a review:", value=example, height=100)
     if st.button("Analyze Review"):
-        if not model_loaded:
-            st.error("Model could not be loaded. Please try another domain or check Hugging Face.")
-        elif not text.strip():
+        if not text.strip():
             st.info("Please enter a review.")
         else:
             with st.spinner("Extracting triplets..."):
@@ -69,7 +36,7 @@ with tab1:
                     st.info("No aspects/opinions could be extracted from this review.")
 
 with tab2:
-    st.subheader(f"Batch Reviews (CSV) - Context: {domain}")
+    st.subheader("Batch Reviews (CSV)")
     csv_file = st.file_uploader("Upload a CSV containing a 'review' column:", type=["csv"])
     if csv_file:
         dataframe = pd.read_csv(csv_file)
@@ -99,4 +66,4 @@ with tab2:
                     )
                 else:
                     st.info("No triplets found in uploaded reviews.")
-st.markdown("---\n*Models powered by Hugging Face Transformers. Choose domain for context-aware analysis!*")
+st.markdown("---\n*Model: SayakPaul/Restaurant-ABSA-BART (Hugging Face)*")
