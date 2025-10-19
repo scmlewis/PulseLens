@@ -1,5 +1,5 @@
 ---
-title: Customer Feedback Analyzer
+title: Customer Feedback Sentiment & Aspect Classifier
 emoji: 📊
 colorFrom: purple
 colorTo: pink
