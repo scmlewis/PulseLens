@@ -1,8 +1,8 @@
 ---
 title: Customer Feedback Analyzer
-emoji: 🚀
+emoji: 📊
 colorFrom: purple
-colorTo: blue
+colorTo: pink
 sdk: streamlit
 sdk_version: 1.44.1
 app_file: app.py
