@@ -17,17 +17,11 @@ DEFAULT_ASPECTS = [
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 
 SAMPLE_COMMENTS = [
-    # Restaurant
     "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
-    # Electronics
     "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
-    # Fashion
     "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
-    # Supermarket
     "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
-    # Books
     "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
-    # Hotel
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
 
@@ -45,8 +39,9 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-st.header("🧠 Customer Feedback Sentiment & Aspect Classifier", divider="blue")
 st.markdown(
+    "<h1 style='color:#4F8BF9; font-size:2.5em;'>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>"
+    "<hr style='border:1px solid #4F8BF9;'>"
     "<span style='font-size:1.2em;'>Analyze customer reviews for sentiment and aspect relevance using a robust, general-purpose AI model.</span>",
     unsafe_allow_html=True
 )
@@ -84,7 +79,14 @@ with tab1:
                     "Aspect": aspect_result["labels"],
                     "Score": aspect_result["scores"]
                 })
-                st.dataframe(df.style.background_gradient(cmap="Blues"))
+                for idx, row in df.iterrows():
+                    score = row["Score"]
+                    color = "#4F8BF9" if score > 0.5 else "#aaa"
+                    emoji = "🔵" if score > 0.7 else "⚪"
+                    st.markdown(
+                        f"<span style='font-size:1.1em; color:{color};'>{emoji} <b>{row['Aspect']}</b>: {score:.2f}</span>",
+                        unsafe_allow_html=True
+                    )
 
 with tab2:
     st.subheader("Batch Reviews (CSV)")
@@ -112,7 +114,7 @@ with tab2:
                         })
                 results_df = pd.DataFrame(results)
                 st.markdown("<h5>Batch Classification Results:</h5>", unsafe_allow_html=True)
-                st.dataframe(results_df.style.background_gradient(cmap="Blues"))
+                st.dataframe(results_df)
                 csv_result = results_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download Results as CSV",
