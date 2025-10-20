@@ -12,9 +12,27 @@ def load_zero_shot():
 
 classifier = load_zero_shot()
 
-SUGGESTED_ASPECTS_STATIC = [
-    "food, service, ambience, price, delivery, product quality, staff, support, design, usability, battery, display, camera, performance, durability, shipping, fit, material, style, comfort, cleanliness, location, amenities, checkout, variety, freshness, customer service, packaging, speed, plot, characters, writing, pacing, ending, value, features, sound, wifi, room, maintenance"
-]
+# Grouped Suggested Aspects by Use Case
+GROUPED_ASPECTS = {
+    "🍽️ Restaurant": [
+        "food", "service", "ambience", "price", "delivery", "staff", "product quality"
+    ],
+    "💻 Electronics": [
+        "battery", "display", "camera", "performance", "durability", "shipping", "support"
+    ],
+    "👗 Fashion": [
+        "fit", "material", "style", "comfort", "design", "price"
+    ],
+    "🛒 Supermarket": [
+        "freshness", "variety", "checkout", "customer service", "packaging", "speed"
+    ],
+    "📚 Books": [
+        "plot", "characters", "writing", "pacing", "ending", "value"
+    ],
+    "🏨 Hotel": [
+        "cleanliness", "location", "amenities", "room", "wifi", "maintenance"
+    ]
+}
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 
 SAMPLE_COMMENTS = [
@@ -27,23 +45,32 @@ SAMPLE_COMMENTS = [
 ]
 
 # --- Sidebar ---
-st.sidebar.markdown(
-    "<h2 style='color:#4F8BF9;'>📝 How to Use</h2>"
-    "<ul>"
-    "<li>Input or generate customer reviews.</li>"
-    "<li>Manually type or paste aspects/categories for analysis.</li>"
-    "<li>Upload a CSV or paste multiple reviews for batch processing.</li>"
-    "</ul>"
-    "<hr>"
-    f"<b>Suggested Aspects:</b><br><span style='color:#4F8BF9;'>{SUGGESTED_ASPECTS_STATIC[0]}</span>",
-    unsafe_allow_html=True
-)
+def render_grouped_aspects():
+    html_str = "<h2 style='color:#4F8BF9; margin-bottom:4px;'>📝 How to Use</h2>"
+    html_str += "<ul style='margin-top:0; padding-left:20px;'>"
+    html_str += "<li>Input or generate customer reviews.</li>"
+    html_str += "<li>Manually type or paste aspects/categories for analysis.</li>"
+    html_str += "<li>Upload CSV or paste multiple reviews for batch analysis.</li></ul><hr>"
+    html_str += "<b>Suggested Aspects by Use Case:</b><br>"
+    for category, aspects in GROUPED_ASPECTS.items():
+        html_str += f"<h3 style='color:#357AB7; margin:6px 0 4px 0;'>{category}</h3>"
+        html_str += "<ul style='padding-left: 20px; margin-top:0; margin-bottom:4px;'>"
+        for asp in aspects:
+            html_str += f"<li>{asp}</li>"
+        html_str += "</ul>"
+    st.sidebar.markdown(html_str, unsafe_allow_html=True)
+
+render_grouped_aspects()
 
 # --- Main UI ---
 st.markdown(
-    "<h1 style='color:#4F8BF9; font-size:2.5em;'>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>"
-    "<hr style='border:1px solid #4F8BF9;'>"
-    "<span style='font-size:1.2em;'>Analyze customer reviews for sentiment and aspect relevance with manual aspect input.</span>",
+    """
+    <div style="background:linear-gradient(90deg, #4F8BF9, #2D5AAB);
+    padding: 15px; border-radius: 8px; box-shadow: 2px 2px 10px #888;">
+        <h1 style="color: white; margin:0;">🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
+        <p style="color: #d0d0d0; font-size:1.1em; margin-top: 8px;">Analyze customer reviews for sentiment and aspect relevance with manual aspect input.</p>
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
