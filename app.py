@@ -18,9 +18,6 @@ SUGGESTED_ASPECTS = [
     "cleanliness", "location", "amenities", "checkout", "variety", "freshness", "customer service", "packaging", "speed",
     "plot", "characters", "writing", "pacing", "ending", "value", "features", "sound", "wifi", "room", "maintenance"
 ]
-DEFAULT_ASPECTS = [
-    "food", "service", "ambience", "price", "delivery", "product quality", "staff", "support", "design", "usability"
-]
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 
 SAMPLE_COMMENTS = [
@@ -32,12 +29,11 @@ SAMPLE_COMMENTS = [
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
 
-# --- Sidebar with clickable aspect suggestions ---
 st.sidebar.markdown(
     "<h2 style='color:#4F8BF9;'>📝 How to Use</h2>"
     "<ul>"
     "<li>Enter or generate a customer review in the main area.</li>"
-    "<li>Click suggested aspects to add them to the input below.</li>"
+    "<li>Click suggested aspects to add them to the selection below.</li>"
     "<li>Click <b>Classify Review</b> to analyze sentiment and aspect relevance.</li>"
     "<li>Upload a CSV with a <b>review</b> column or paste comments for batch analysis.</li>"
     "</ul>"
@@ -46,24 +42,21 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-if "aspects_input_box" not in st.session_state:
-    st.session_state["aspects_input_box"] = ", ".join(DEFAULT_ASPECTS)
+if "selected_aspects" not in st.session_state:
+    st.session_state["selected_aspects"] = []
 
-def add_aspect_to_input(aspect):
-    current = st.session_state["aspects_input_box"]
-    aspects_set = set([a.strip() for a in current.split(",") if a.strip()])
-    aspects_set.add(aspect)
-    st.session_state["aspects_input_box"] = ", ".join(sorted(aspects_set))
+def add_aspect(aspect):
+    current = st.session_state.get("selected_aspects", [])
+    if aspect not in current:
+        current.append(aspect)
+        st.session_state["selected_aspects"] = current
 
 aspect_cols = st.sidebar.columns(3)
 for idx, aspect in enumerate(SUGGESTED_ASPECTS):
     if aspect_cols[idx % 3].button(aspect, key=f"aspect_{aspect}"):
-        add_aspect_to_input(aspect)
+        add_aspect(aspect)
 
-st.sidebar.markdown(
-    "<hr><b>Tip:</b> Click any aspect above to add it to your analysis.",
-    unsafe_allow_html=True
-)
+st.sidebar.markdown("<hr><b>Tip:</b> Click any aspect above to add it to your analysis.", unsafe_allow_html=True)
 
 st.markdown(
     "<h1 style='color:#4F8BF9; font-size:2.5em;'>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>"
@@ -74,7 +67,7 @@ st.markdown(
 
 tab_style = """
     <style>
-    .stTabs [data-baseweb="tab"] {
+    .stTabs [data-baseweb='tab'] {
         font-size: 1.3em !important;
         padding: 0.5em 1.5em !important;
     }
@@ -84,7 +77,6 @@ st.markdown(tab_style, unsafe_allow_html=True)
 tab1, tab2 = st.tabs(["📝 Single Review", "📂 Batch CSV Reviews"])
 
 def sentiment_to_stars(sentiment, score):
-    # Map sentiment and score to 1-5 stars
     if sentiment == "positive":
         if score > 0.85:
             return 5
@@ -94,7 +86,7 @@ def sentiment_to_stars(sentiment, score):
             return 4
     elif sentiment == "neutral":
         return 3
-    else:  # negative
+    else:
         if score > 0.85:
             return 1
         elif score > 0.7:
@@ -114,14 +106,18 @@ with tab1:
         if st.button("🧹 Clear"):
             st.session_state["review_text"] = ""
     text = st.text_area("Enter a review:", value=st.session_state["review_text"], height=120, key="review_input")
-    aspects = st.text_input("Aspects/Categories (comma-separated):", value=st.session_state["aspects_input_box"], key="aspects_input_box")
+
+    # Multiselect for aspects with list from session state
+    aspects = st.multiselect("Aspects/Categories (choose one or more):", options=SUGGESTED_ASPECTS, default=st.session_state["selected_aspects"], key="selected_aspects")
+
     if st.button("🔍 Classify Review"):
         if not text.strip():
             st.info("Please enter a review.")
+        elif not aspects:
+            st.info("Please select at least one aspect.")
         else:
             with st.spinner("Classifying..."):
-                aspect_list = [a.strip() for a in aspects.split(",") if a.strip()]
-                aspect_result = classifier(text, candidate_labels=aspect_list, multi_label=True)
+                aspect_result = classifier(text, candidate_labels=aspects, multi_label=True)
                 sentiment_result = classifier(text, candidate_labels=SENTIMENT_LABELS)
                 sentiment_emoji = {"positive": "😊", "neutral": "😐", "negative": "😞"}
                 stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
@@ -150,12 +146,13 @@ with tab1:
 with tab2:
     st.subheader("Batch Reviews (CSV or Manual Text)")
     st.markdown(
-        "<div style='color:#4F8BF9; font-size:1.1em;'><b>Instructions:</b> Upload a CSV file encoded in <b>UTF-8</b> with a header named <code>review</code> (one review per row), or paste multiple comments below (one per line).</div>",
+        "<div style='color:#4F8BF9; font-size:1.1em;'><b>Instructions:</b> Upload a CSV file encoded in <b>UTF-8</b> with a header named <code>review</code> (one review per row), or paste multiple comments below (one per line). Select at least one aspect to analyze.</div>",
         unsafe_allow_html=True
     )
     csv_file = st.file_uploader("Upload a CSV with a 'review' column:", type=["csv"])
     manual_text = st.text_area("Or paste multiple comments here (one per line):", height=120)
-    aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value=st.session_state["aspects_input_box"], key="batch")
+    aspects = st.multiselect("Aspects/Categories for batch (choose one or more):", options=SUGGESTED_ASPECTS, default=st.session_state.get("batch_selected_aspects", []), key="batch_selected_aspects")
+    
     reviews = []
     if csv_file:
         try:
@@ -168,40 +165,42 @@ with tab2:
             reviews = dataframe['review'].dropna().astype(str).tolist()
     elif manual_text.strip():
         reviews = [line.strip() for line in manual_text.split("\n") if line.strip()]
+    
     if reviews:
         st.write("Sample Reviews:", pd.DataFrame({"review": reviews[:5]}))
         if st.button("🔍 Classify Batch Reviews"):
-            aspect_list = [a.strip() for a in aspects.split(",") if a.strip()]
-            results = []
-            with st.spinner("Classifying batch reviews..."):
-                for r in reviews:
-                    sentiment_result = classifier(r, candidate_labels=SENTIMENT_LABELS)
-                    aspect_result = classifier(r, candidate_labels=aspect_list, multi_label=True)
-                    stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
-                    results.append({
-                        "review": r,
-                        "sentiment": sentiment_result["labels"][0],
-                        "sentiment_score": sentiment_result["scores"][0],
-                        "star_rating": stars,
-                        "top_aspect": aspect_result["labels"][0],
-                        "aspect_score": aspect_result["scores"][0]
-                    })
-            results_df = pd.DataFrame(results)
-            st.markdown("<h5>Batch Classification Results:</h5>", unsafe_allow_html=True)
-            st.dataframe(results_df)
-            # Visualizations
-            st.markdown("<h5>Rating Distribution:</h5>", unsafe_allow_html=True)
-            fig1 = px.pie(results_df, names="star_rating", title="Star Rating Distribution", color_discrete_sequence=px.colors.sequential.Blues)
-            st.plotly_chart(fig1, use_container_width=True)
-            st.markdown("<h5>Sentiment Analysis:</h5>", unsafe_allow_html=True)
-            fig2 = px.bar(results_df, x="sentiment", title="Sentiment Distribution", color="sentiment", color_discrete_map={"positive":"green","neutral":"gray","negative":"red"})
-            st.plotly_chart(fig2, use_container_width=True)
-            csv_result = results_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download Results as CSV",
-                data=csv_result,
-                file_name="classification_results.csv",
-                mime="text/csv"
-            )
+            if not aspects:
+                st.info("Please select at least one aspect.")
+            else:
+                results = []
+                with st.spinner("Classifying batch reviews..."):
+                    for r in reviews:
+                        sentiment_result = classifier(r, candidate_labels=SENTIMENT_LABELS)
+                        aspect_result = classifier(r, candidate_labels=aspects, multi_label=True)
+                        stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
+                        results.append({
+                            "review": r,
+                            "sentiment": sentiment_result["labels"][0],
+                            "sentiment_score": sentiment_result["scores"][0],
+                            "star_rating": stars,
+                            "top_aspect": aspect_result["labels"][0],
+                            "aspect_score": aspect_result["scores"][0]
+                        })
+                results_df = pd.DataFrame(results)
+                st.markdown("<h5>Batch Classification Results:</h5>", unsafe_allow_html=True)
+                st.dataframe(results_df)
+                st.markdown("<h5>Rating Distribution:</h5>", unsafe_allow_html=True)
+                fig1 = px.pie(results_df, names="star_rating", title="Star Rating Distribution", color_discrete_sequence=px.colors.sequential.Blues)
+                st.plotly_chart(fig1, use_container_width=True)
+                st.markdown("<h5>Sentiment Analysis:</h5>", unsafe_allow_html=True)
+                fig2 = px.bar(results_df, x="sentiment", title="Sentiment Distribution", color="sentiment", color_discrete_map={"positive":"green","neutral":"gray","negative":"red"})
+                st.plotly_chart(fig2, use_container_width=True)
+                csv_result = results_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download Results as CSV",
+                    data=csv_result,
+                    file_name="classification_results.csv",
+                    mime="text/csv"
+                )
 
 st.markdown("<hr><span style='color:gray;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</span>", unsafe_allow_html=True)
