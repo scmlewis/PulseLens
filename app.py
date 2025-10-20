@@ -46,16 +46,19 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-if "aspects_input" not in st.session_state:
-    st.session_state["aspects_input"] = ", ".join(DEFAULT_ASPECTS)
+if "aspects_input_box" not in st.session_state:
+    st.session_state["aspects_input_box"] = ", ".join(DEFAULT_ASPECTS)
+
+def add_aspect_to_input(aspect):
+    current = st.session_state["aspects_input_box"]
+    aspects_set = set([a.strip() for a in current.split(",") if a.strip()])
+    aspects_set.add(aspect)
+    st.session_state["aspects_input_box"] = ", ".join(sorted(aspects_set))
 
 aspect_cols = st.sidebar.columns(3)
 for idx, aspect in enumerate(SUGGESTED_ASPECTS):
     if aspect_cols[idx % 3].button(aspect, key=f"aspect_{aspect}"):
-        current = st.session_state["aspects_input"]
-        aspects_set = set([a.strip() for a in current.split(",") if a.strip()])
-        aspects_set.add(aspect)
-        st.session_state["aspects_input"] = ", ".join(sorted(aspects_set))
+        add_aspect_to_input(aspect)
 
 st.sidebar.markdown(
     "<hr><b>Tip:</b> Click any aspect above to add it to your analysis.",
@@ -111,7 +114,7 @@ with tab1:
         if st.button("🧹 Clear"):
             st.session_state["review_text"] = ""
     text = st.text_area("Enter a review:", value=st.session_state["review_text"], height=120, key="review_input")
-    aspects = st.text_input("Aspects/Categories (comma-separated):", value=st.session_state["aspects_input"], key="aspects_input_box")
+    aspects = st.text_input("Aspects/Categories (comma-separated):", value=st.session_state["aspects_input_box"], key="aspects_input_box")
     if st.button("🔍 Classify Review"):
         if not text.strip():
             st.info("Please enter a review.")
@@ -152,7 +155,7 @@ with tab2:
     )
     csv_file = st.file_uploader("Upload a CSV with a 'review' column:", type=["csv"])
     manual_text = st.text_area("Or paste multiple comments here (one per line):", height=120)
-    aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value=st.session_state["aspects_input"], key="batch")
+    aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value=st.session_state["aspects_input_box"], key="batch")
     reviews = []
     if csv_file:
         try:
@@ -200,6 +203,5 @@ with tab2:
                 file_name="classification_results.csv",
                 mime="text/csv"
             )
-            # Table remains visible after download
 
 st.markdown("<hr><span style='color:gray;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</span>", unsafe_allow_html=True)
