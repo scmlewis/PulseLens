@@ -94,18 +94,24 @@ def sentiment_to_stars(sentiment, score):
         else:
             return 2
 
+
 with tab1:
     st.subheader("Single Review")
-    if "review_text" not in st.session_state:
-        st.session_state["review_text"] = ""
-    col1, col2 = st.columns([1, 1])
-    with col1:
+    input_mode = st.radio("Choose input method:", ["Manual Text", "Generate Sample Comment"])
+    if "review_text_manual" not in st.session_state:
+        st.session_state["review_text_manual"] = ""
+    if "review_text_sample" not in st.session_state:
+        st.session_state["review_text_sample"] = random.choice(SAMPLE_COMMENTS)
+    
+    # Show corresponding input widget
+    if input_mode == "Manual Text":
+        text = st.text_area("Enter a review:", value=st.session_state["review_text_manual"], height=120, key="review_input_manual")
+        st.session_state["review_text_manual"] = text
+    else:
         if st.button("✨ Generate Sample Comment"):
-            st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
-    with col2:
-        if st.button("🧹 Clear"):
-            st.session_state["review_text"] = ""
-    text = st.text_area("Enter a review:", value=st.session_state["review_text"], height=120, key="review_input")
+            st.session_state["review_text_sample"] = random.choice(SAMPLE_COMMENTS)
+        st.markdown(f"### Sample Comment:\n\n{st.session_state['review_text_sample']}")
+        text = st.session_state["review_text_sample"]
 
     # Multiselect for aspects with list from session state
     aspects = st.multiselect("Aspects/Categories (choose one or more):", options=SUGGESTED_ASPECTS, default=st.session_state["selected_aspects"], key="selected_aspects")
