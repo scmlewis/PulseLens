@@ -4,7 +4,7 @@ emoji: 📊
 colorFrom: purple
 colorTo: pink
 sdk: streamlit
-sdk_version: 1.44.1
+sdk_version: 1.50.0
 app_file: app.py
 pinned: false
 short_description: Analyze customer feedback with categorization
