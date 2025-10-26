@@ -43,7 +43,7 @@ SAMPLE_COMMENTS = [
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
 
-# --- Sidebar ---
+# Sidebar with grouped aspects display
 def render_grouped_aspects():
     html_str = "<h2 style='color:#4F8BF9; margin-bottom:4px;'>📝 How to Use</h2>"
     html_str += "<ul style='margin-top:0; padding-left:20px;'>"
@@ -61,7 +61,7 @@ def render_grouped_aspects():
 
 render_grouped_aspects()
 
-# --- Main UI ---
+# Main Page Header Styling
 st.markdown(
     """
     <div style="background:linear-gradient(90deg, #4F8BF9, #2D5AAB);
@@ -119,8 +119,10 @@ with tab1:
 
     if "review_text" not in st.session_state:
         st.session_state["review_text"] = ""
-    text = st.text_area("Enter a review:", value=st.session_state["review_text"], height=120, key="review_input")
+
+    text = st.text_area("Enter a review:", height=120, key="review_text")
     aspects = st.text_input("Aspects/Categories (comma-separated):", value="", key="aspects_text")
+
     if st.button("🔍 Classify Review"):
         if not text.strip():
             st.info("Please enter a review.")
@@ -166,7 +168,7 @@ with tab2:
     csv_file = st.file_uploader("Upload a CSV with a 'review' column:", type=["csv"])
     manual_text = st.text_area("Or paste multiple comments here (one per line):", height=120)
     aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value="", key="batch_aspects_text")
-    
+
     reviews = []
     if csv_file:
         try:
@@ -179,7 +181,7 @@ with tab2:
             reviews = dataframe['review'].dropna().astype(str).tolist()
     elif manual_text.strip():
         reviews = [line.strip() for line in manual_text.split("\n") if line.strip()]
-    
+
     if reviews:
         st.write("Sample Reviews:", pd.DataFrame({"review": reviews[:5]}))
         if st.button("🔍 Classify Batch Reviews"):
