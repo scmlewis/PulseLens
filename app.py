@@ -146,6 +146,57 @@ def set_sample():
 def clear_text():
     st.session_state["review_text"] = ""
 
+tab1, tab2, tab3 = st.tabs(["💬 Single Review", "📊 Batch Reviews", "❓ About & Help"])
+
+with tab1:
+    if "review_text" not in st.session_state:
+        st.session_state["review_text"] = ""
+    st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;display:block;margin-bottom:0.09em;">💬 Enter a review</span>', unsafe_allow_html=True)
+    text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
+    st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
+    st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
+    st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Aspects/Categories (comma-separated)</span>', unsafe_allow_html=True)
+    aspects = st.text_input("", value="", key="aspects_text", label_visibility="collapsed")
+    st.markdown('<div style="display:flex;justify-content:center;margin-top:0.25em;margin-bottom:0.41em;">', unsafe_allow_html=True)
+    if st.button("🚦 Classify Now", key="classify_single_btn2"):
+        if not text.strip():
+            st.error("Please enter a review.")
+        elif not aspects.strip():
+            st.error("Please enter at least one aspect.")
+        else:
+            with st.spinner("🔄 Classifying… Please wait."):
+                aspect_list = [a.strip() for a in aspects.split(",") if a.strip()]
+                aspect_result = classifier(text, candidate_labels=aspect_list, multi_label=True)
+                sentiment_result = classifier(text, candidate_labels=SENTIMENT_LABELS)
+                sentiment_emoji = {"positive": "😊", "neutral": "😐", "negative": "😞"}
+                stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
+                st.markdown(
+                    f'''<div class="output-card">
+                      <span class="senti-label">Sentiment:</span> <span class="senti-positive">{sentiment_emoji.get(sentiment_result['labels'][0],'')}</span> <b class="senti-positive">{sentiment_result['labels'][0].capitalize()}</b>
+                      <span class="senti-score">(Score: {sentiment_result['scores'][0]:.2f})</span>
+                      <div class="output-stars">Star Rating: {'⭐'*stars} ({stars}/5)</div>
+                    </div>''', unsafe_allow_html=True
+                )
+                st.markdown('<div class="aspect-label-list" style="font-size:1.11em;font-weight:700;color:#a7c3fe;margin:0.2em 0 0.11em 1px;">Aspect Relevance Scores:</div>', unsafe_allow_html=True)
+                df = pd.DataFrame({
+                    "Aspect": aspect_result["labels"],
+                    "Score": aspect_result["scores"]
+                })
+                for idx, row in df.iterrows():
+                    colorclass = "aspect-dot" if row["Score"] > 0.6 else "aspect-dot aspect-dot-lo"
+                    st.markdown(
+                        f'''<div class="aspect-row">
+                            <span class="{colorclass}"></span>
+                            <span style="font-weight:700;color:#7ecefa;">{row['Aspect']}</span>
+                            <span class="aspect-score">: {row["Score"]:.2f}</span>
+                        </div>''', unsafe_allow_html=True
+                    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Include the batch and about/help tabs as previously pasted in PART 2
+# (You can simply copy from my last response - it fits after the tab1 code you see here.)
 with tab2:
     if 'uploaded_filename' not in st.session_state:
         st.session_state['uploaded_filename'] = ''
