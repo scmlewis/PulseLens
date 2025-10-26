@@ -169,8 +169,29 @@ with tab3:
     st.markdown("""
     <div style="max-width: 800px; margin: 1.2em auto 0 auto; background:#232a3b; border-radius:13px; padding:2em 2.4em 1.8em 2.4em;">
     <h2 style="text-align:center; color:#8eaffc; margin-bottom:0.5em;">❓ About & Help</h2>
-    <div><b>Suggested Aspects (by Industry):</b></div>
-    <div class="suggested-aspect-grid">
+    
+    <b>How to Use:</b>
+    <ul>
+      <li><b>Single Review:</b> Type or paste a customer review into the input box, enter one or more aspects (separated by commas), and click <b>Classify Now</b>.</li>
+      <li><b>Batch Reviews:</b> Upload a CSV file containing a <code>review</code> column, or paste multiple reviews (one per line) in the provided textbox. Enter your aspects, then click <b>Classify Batch</b>.</li>
+      <li>See instant results for sentiment (positive, neutral, negative), a 1-5 star conversion, and aspect alignment. Batch mode includes charts and downloadable CSV.</li>
+    </ul>
+    <b>What do "Sentiment" and "Rating" mean?</b>
+    <ul>
+      <li><b>Sentiment:</b> The AI classifies the overall tone of the review as positive 😊, neutral 😐, or negative 😞.</li>
+      <li><b>Star Rating:</b> Sentiment confidence is mapped to 1-5 stars, offering a familiar, quick-glance metric.</li>
+      <li><b>Aspects:</b> For each chosen aspect (like "service" or "price"), the AI gives a relevance score showing how much that topic drives the review's sentiment.</li>
+    </ul>
+    <b>How are results generated?</b>
+    <ul>
+      <li>AI-powered zero-shot classification ("facebook/bart-large-mnli") is used for all sentiment and aspect detection.</li>
+      <li>No templates: the model uses deep language understanding for high accuracy across topics.</li>
+      <li>Supports both short and long reviews, and any custom aspects you define.</li>
+    </ul>
+    <hr style="border:1px solid #282a39; margin:2em 0 1em 0;">
+    <div style="background:#252d40; border-radius:12px; padding:1.7em 1.2em 1em 1.2em; margin-bottom:2em; box-shadow: 0 1.5px 12px #1b263433">
+      <span class="suggested-aspects-title">Suggested Aspects (by Industry):</span>
+      <div class="suggested-aspect-grid">
         <div class="suggested-aspect-group">
             <div class="suggested-group-title">🍽️ Restaurant</div>
             <div class="suggested-chips-row">
@@ -207,11 +228,15 @@ with tab3:
                 <span class="suggested-chip">cleanliness</span><span class="suggested-chip">location</span><span class="suggested-chip">amenities</span><span class="suggested-chip">room</span><span class="suggested-chip">wifi</span><span class="suggested-chip">maintenance</span>
             </div>
         </div>
+      </div>
     </div>
-    <!-- (You can put the rest of your About/help prose below) -->
-    <hr style="border:1px solid #282a39; margin:2em 0 1em 0;">
-    <b>How to Use:</b>
-    ... [rest of your help/instructions as you like] ...
+    <b>Questions?</b>
+    <ul>
+      <li>CSV uploads require a column titled exactly <b>review</b>.</li>
+      <li>Choose aspects ("service", "value", etc.) that fit the context of your feedback.</li>
+      <li>All processing is instant and secure—no text is sent to external servers or stored.</li>
+      <li>For further help or feedback, please contact the developer.</li>
+    </ul>
     </div>
     """, unsafe_allow_html=True)
 
