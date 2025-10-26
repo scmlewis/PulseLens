@@ -4,89 +4,147 @@ import random
 from transformers import pipeline
 import plotly.express as px
 
-st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", initial_sidebar_state="expanded")
-
-# --- Modernized CSS and layout (reference-inspired) ---
+# ---- CSS block: Modern dashboard/Inter/gradient/header/nav/buttons/helpbox/cards/feedback/resp ----
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 <style>
-body, .stApp { background: #181c27 !important; font-family: 'Segoe UI', sans-serif !important; color: #f3f6fb !important; }
+html, body, .stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; }
 .top-banner {
     width: 100vw;
     margin-left: -3.5vw;
-    background: linear-gradient(90deg, #4F8BF9 70%, #2D5AAB 100%);
-    padding: 1.3rem 0 0.9rem 2.4rem;
+    background: linear-gradient(90deg, #4F8BF9 65%, #2D5AAB 100%);
+    padding: 2.1rem 0 1.6rem 2.3rem;
     color: #fff;
-    box-shadow: 0 2px 12px #0001;
-    border-radius: 0 0 1.15rem 1.15rem;
-    margin-bottom: 2.1em;
+    box-shadow: 0 3px 16px #191c2859;
+    border-radius: 0 0 1.6rem 1.6rem;
+    margin-bottom: 2.15em;
+    border-bottom: 4px solid #43a2ff;
 }
-.top-banner h1 { font-size: 2.2em; font-weight: 800; margin: 0 0 0.3em 0; color: #fff; }
-.top-banner .desc { font-weight: 430; font-size: 1.09em; color: #dbe2f7; }
+.top-banner h1 { font-size: 2.2em; font-weight: 800; margin: 0; color: #fff; }
+.top-banner .desc { font-weight: 430; font-size: 1.12em; color: #dae7ff; }
+.nav-row {
+    width: 100%;
+    display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: flex-end;
+    margin-bottom: 0.44em; gap: min(1vw, 16px);
+    margin-top: 0.4em;
+}
+.nav-btn {
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+    border-radius: 999px;
+    font-size: 1.15em; font-weight: 700;
+    padding: 0.8em 1.7em;
+    margin-right: 0.3em; margin-top:0.12em; margin-bottom:0.14em;
+    background: linear-gradient(90deg, #292d43, #212644 100%);
+    color: #bfdcff;
+    box-shadow: 0 1.5px 14px #1b1c237a;
+    transition: all 0.17s;
+}
+.nav-btn[aria-current="page"] {
+    background: linear-gradient(90deg,#5dc7ff,#4f80f9 70%, #5f95fc 100%);
+    color: #fff;
+    box-shadow: 0 3px 16px #43a2ff34;
+    filter: brightness(1.08);
+}
+.nav-btn:hover, .nav-btn:active {
+    background: linear-gradient(90deg,#366fd9,#575fcf);
+    color: #fff;
+}
+@media(max-width: 650px) {
+    .top-banner h1 { font-size: 1.18em; }
+    .nav-btn { font-size: 0.98em; padding: 0.7em 0.9em;}
+}
+.help-box {
+    background: #23273d;
+    border-left: 5px solid #56aaff;
+    border-radius: 8px;
+    padding: 1.1em 1.3em 1.05em 1.2em;
+    color: #bfcfff;
+    margin-bottom: 1.6em;
+    font-size: 1.08em;
+    line-height: 1.7;
+    box-shadow: 0 2px 8px #14182523;
+}
 .card {
-    background: #232a3b !important;
+    background: #232a3b;
     border-radius: 18px;
-    box-shadow: 0 6px 24px rgba(50,60,75,0.12);
-    padding: 2rem 2.1rem 1.55rem 2rem;
-    margin-bottom: 2.2rem;
+    box-shadow: 0 6px 24px rgba(50,60,75,0.13);
+    padding: 2rem 2.1rem 1.5rem 2rem;
+    margin-bottom: 2.15rem;
 }
 .stTabs [data-baseweb='tab-list'] { background: none !important; }
-.stTabs [data-baseweb='tab'] { font-size: 1.14em; font-weight: 700; color: #a8c7ff !important; background: none;}
-.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; border-bottom:3px solid #32449b; }
+.stTabs [data-baseweb='tab'] { font-size: 1.13em; font-weight: 700; color: #c9e0ff !important; background: none;}
+.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; border-bottom:3px solid #4F8BF9; }
 .stButton > button {
     background: linear-gradient(90deg,#32449b,#485cdd);
     color: #fff !important;
     font-weight: 700 !important;
     border-radius: 10px !important;
-    padding: 0.65em 2.2em !important;
-    font-size: 1.1em !important;
-    margin: 0.18em 0.8em 0.18em 0;
+    padding: 0.73em 2.11em !important;
+    font-size: 1.06em !important;
+    margin: 0.19em 1em 0.3em 0;
+    border:none;
+    box-shadow: 0 1px 8px #202a3d51;
 }
-.stButton > button:hover {
-    background: linear-gradient(90deg,#4658af,#6270f7) !important;
-    color: #e7eaff !important;
+.stButton > button:hover, .stButton > button:focus {
+    background: linear-gradient(90deg,#3970e8,#61a3fd) !important;
+    color: #fff !important;
 }
 .stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
     background: #22283a !important;
     border-radius: 8px !important;
-    color: #f3f6fb !important;
-    border: 2px solid #32449b !important;
+    color: #e3f2ff !important;
+    border: 2px solid #3a4ece !important;
     font-size: 1.13em !important;
     font-weight: 500 !important;
 }
 .stTextInput > div>input:focus, .stTextArea textarea:focus, .stSelectbox>div>div:focus {
-    border-color: #7e9dde !important;
+    border-color: #61a3fd !important;
     box-shadow: 0 0 8px #395fa7 !important;
-    outline: none !important;
 }
 .stDataFrame > div > div { border-radius: 12px !important; box-shadow:0 0 14px #171d2e;}
-.st-expander { background: #222945 !important; border-radius: 14px !important; color: #c3cff8;}
-/* Sidebar */
+.st-expander { background: #1b2134 !important; border-radius: 15px !important; color: #c3cff8;}
+/* Sidebar sections & lists */
 [data-testid="stSidebar"] { background: #181c27 !important;}
-.sb-section { margin-bottom: 1.3em; }
-.sb-hdr { color: #8ebafa !important; font-weight: bold; font-size: 1.04em; margin-bottom:0.18em;}
-.sb-list { padding-left:1.15em; margin-top:0.13em; margin-bottom:0.57em;}
-.sb-list li { color: #e8eaff; font-size: 1em; margin-bottom:0.15em; line-height: 1.5;}
-hr.sb-hr { border: none; border-top: 1px solid #23305a; margin: 0.82em 0; }
+.sb-section { margin-bottom: 1.17em; }
+.sb-hdr { color: #8ebafa !important; font-weight: bold; font-size: 1.02em; margin-bottom:0.17em;}
+.sb-list { padding-left:1.1em; margin-top:0.17em; margin-bottom:0.54em;}
+.sb-list li { color: #e8eaff; font-size: 1em; margin-bottom:0.11em; line-height: 1.45;}
+hr.sb-hr { border: none; border-top: 1px solid #23305a; margin: 0.77em 0 0.85em 0;}
+/* Feedback animated slide-in */
+.stAlert {animation:slidein 0.5s;}
+@keyframes slidein { from { opacity:0;transform: translateY(-14px);} to { opacity: 1;transform:translateY(0);} }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Top Banner outside all cards ---
+# App header
 st.markdown(
     """
     <div class='top-banner'>
         <h1>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
-        <div class='desc'>AI-powered sentiment & aspect mining for feedback across industries</div>
+        <div class='desc'>Modern, AI-powered feedback analytics for all industries.</div>
     </div>
     """, unsafe_allow_html=True
 )
+# Simulated horizontal nav bar
+nav_buttons = [
+    ("🏠 Welcome", "welcome"),
+    ("💬 Single Review", "single"),
+    ("📊 Batch Reviews", "batch"),
+    ("📤 Upload Data", "upload"),
+    ("📈 Visualize", "visualize"),
+    ("🤖 AI Chat", "chat")
+]
+nav_query = st.query_params if hasattr(st, 'query_params') else {}
+current_section = nav_query.get("section", "single")  # default for now, might want to adjust logic
+nav_markup = '<div class="nav-row">'
+for label, section in nav_buttons:
+    selected = (section == current_section)
+    nav_markup += f'<button class="nav-btn" {"aria-current=page" if selected else ""}>{label}</button>'
+nav_markup += "</div>"
+st.markdown(nav_markup, unsafe_allow_html=True)
 
-@st.cache_resource
-def load_zero_shot():
-    return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-
-classifier = load_zero_shot()
-
+######## Sidebar with improved list
 GROUPED_ASPECTS = {
     "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
     "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
@@ -95,6 +153,31 @@ GROUPED_ASPECTS = {
     "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
     "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
 }
+def render_grouped_aspects():
+    st.sidebar.markdown('<div class="sb-section"><span class="sb-hdr">Suggested Aspects</span></div>', unsafe_allow_html=True)
+    for group, aspects in GROUPED_ASPECTS.items():
+        st.sidebar.markdown(
+            f"<div class='sb-section'><span class='sb-hdr'>{group}</span><ul class='sb-list'>" +
+            "".join(f"<li>{asp}</li>" for asp in aspects) +
+            "</ul></div><hr class='sb-hr'>", unsafe_allow_html=True
+        )
+render_grouped_aspects()
+
+# ---- Main content nav: Help box ----
+st.markdown("""
+<div class="help-box">
+    <span style="font-size:1.15em; margin-right:0.38em;">💡</span>
+    Enter a review, choose aspects (comma-separated), then classify. For batch analysis, upload a CSV or paste reviews below.
+    Results will show live sentiment, aspect rating, and charts. All results are processed securely and instantly in your browser.
+</div>
+""", unsafe_allow_html=True)
+
+# ---- Main content: Card container and workflow tabbed UI ----
+@st.cache_resource
+def load_zero_shot():
+    return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
+classifier = load_zero_shot()
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 SAMPLE_COMMENTS = [
     "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
@@ -104,31 +187,6 @@ SAMPLE_COMMENTS = [
     "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
-
-def render_grouped_aspects():
-    st.sidebar.markdown("<div class='sb-section'><span class='sb-hdr'>Suggested Aspects</span></div>", unsafe_allow_html=True)
-    for group, aspects in GROUPED_ASPECTS.items():
-        st.sidebar.markdown(
-            f"<div class='sb-section'><span class='sb-hdr'>{group}</span><ul class='sb-list'>" +
-            "".join(f"<li>{asp}</li>" for asp in aspects) +
-            "</ul></div><hr class='sb-hr'>", unsafe_allow_html=True
-        )
-
-render_grouped_aspects()
-
-# --- Welcome Card
-st.markdown("""
-<div class="card">
-    <h3 style="margin-bottom:0.7em;"><span style="font-size:1.2em;margin-right:0.3em;">👋</span>Welcome!</h3>
-    <div style="font-size:1.08em; color:#d5daf1">
-        Fast, AI-powered feedback analysis. Enter a review (single or batch), select aspects, and classify below.<br>
-        <span style='color:#b9bcff;'>Tip: Paste a review list for batch analysis with live charts.</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""<div class="card">""", unsafe_allow_html=True)
-tab1, tab2 = st.tabs(["📝 Single Review", "📂 Batch CSV/Manual"])
 
 def sentiment_to_stars(sentiment, score):
     if sentiment == "positive":
@@ -142,6 +200,8 @@ def sentiment_to_stars(sentiment, score):
         elif score > 0.7: return 2
         else: return 2
 
+st.markdown("""<div class="card">""", unsafe_allow_html=True)
+tab1, tab2 = st.tabs(["💬 Single Review", "📊 Batch Reviews"])
 with tab1:
     st.subheader("Single Review")
     def generate_sample(): st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
@@ -189,13 +249,13 @@ with tab1:
 with tab2:
     st.subheader("Batch Reviews (CSV or Manual List)")
     st.markdown(
-        "<div style='color:#7e8abb; font-size:1.1em;'><b>Instructions:</b> Upload a UTF-8 CSV with header <code>review</code>, or paste multiple reviews (one per line). Enter aspects comma-separated for analysis below.</div>",
+        "<div style='color:#7e8abb; font-size:1.08em; margin-bottom: 0.6em;'><b>Instructions:</b> Upload a UTF-8 CSV file named <code>review</code> or paste reviews (one per line) below. Enter aspects below and press 'Classify Batch'.</div>",
         unsafe_allow_html=True
     )
     with st.expander("Batch Input Options"):
         col1, col2 = st.columns([1, 1])
         with col1:
-            csv_file = st.file_uploader("🗂️ CSV file upload", type=["csv"])
+            csv_file = st.file_uploader("🗂️ CSV Upload", type=["csv"])
         with col2:
             manual_text = st.text_area("📋 Paste reviews (one per line)", height=120)
     aspects = st.text_input("🔎 Aspects/Categories for batch", value="", key="batch_aspects_text")
