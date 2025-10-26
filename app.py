@@ -4,147 +4,98 @@ import random
 from transformers import pipeline
 import plotly.express as px
 
-# ---- CSS block: Modern dashboard/Inter/gradient/header/nav/buttons/helpbox/cards/feedback/resp ----
+st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", initial_sidebar_state="expanded")
+
+# --- CSS FOR HEADER, TABS, SIDEBAR ASPECT GRID, DARK THEME ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 <style>
-html, body, .stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; }
-.top-banner {
-    width: 100vw;
-    margin-left: -3.5vw;
-    background: linear-gradient(90deg, #4F8BF9 65%, #2D5AAB 100%);
-    padding: 2.1rem 0 1.6rem 2.3rem;
-    color: #fff;
-    box-shadow: 0 3px 16px #191c2859;
-    border-radius: 0 0 1.6rem 1.6rem;
-    margin-bottom: 2.15em;
-    border-bottom: 4px solid #43a2ff;
+body, .stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; color: #f3f6fb !important; }
+.header-banner {
+    max-width: 820px; margin: 2.1em auto 1em auto; 
+    background: linear-gradient(90deg,#4F8BF9 65%, #2D5AAB 100%);
+    border-radius:1.15rem; padding:1.17em 2.1em 1.13em 2.1em; box-shadow:0 2px 16px #22203438;
+    text-align:left; border-bottom: 4px solid #43a2ff;
 }
-.top-banner h1 { font-size: 2.2em; font-weight: 800; margin: 0; color: #fff; }
-.top-banner .desc { font-weight: 430; font-size: 1.12em; color: #dae7ff; }
-.nav-row {
-    width: 100%;
-    display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: flex-end;
-    margin-bottom: 0.44em; gap: min(1vw, 16px);
-    margin-top: 0.4em;
+.header-banner h1 { font-size: 2.16em; font-weight: 900; margin: 0; color: #fff; line-height:1.1; }
+.header-banner .desc { font-weight: 500; font-size: 1.06em; color: #dbe2ff; margin-top:0.25em; }
+
+.stTabs [data-baseweb='tab-list'] { background: none !important;}
+.stTabs [data-baseweb='tab'] {
+    border-radius: 22px 22px 0 0 !important;
+    margin-right: 1.2em !important;
+    font-size: 1.19em !important;
+    font-weight: 800 !important;
+    color: #adc8ff !important;
+    padding: 0.82em 2.2em 0.82em 2.2em !important;
+    background: #232a3b !important;
+    box-shadow: 0 2.5px 18px #22283a34;
+    border: 2.1px solid #3F59B844;
 }
-.nav-btn {
-    display: flex; align-items: center; justify-content: center;
-    border: none; cursor: pointer;
-    border-radius: 999px;
-    font-size: 1.15em; font-weight: 700;
-    padding: 0.8em 1.7em;
-    margin-right: 0.3em; margin-top:0.12em; margin-bottom:0.14em;
-    background: linear-gradient(90deg, #292d43, #212644 100%);
-    color: #bfdcff;
-    box-shadow: 0 1.5px 14px #1b1c237a;
-    transition: all 0.17s;
+.stTabs [data-baseweb='tab'][aria-selected='true'] {
+    color: #fff !important; background: linear-gradient(90deg, #527afe, #3553c3 90%);
+    border-bottom: 4.1px solid #8dc7fc !important;
+    box-shadow: 0 5px 22px #325aee18;
 }
-.nav-btn[aria-current="page"] {
-    background: linear-gradient(90deg,#5dc7ff,#4f80f9 70%, #5f95fc 100%);
-    color: #fff;
-    box-shadow: 0 3px 16px #43a2ff34;
-    filter: brightness(1.08);
-}
-.nav-btn:hover, .nav-btn:active {
-    background: linear-gradient(90deg,#366fd9,#575fcf);
-    color: #fff;
-}
-@media(max-width: 650px) {
-    .top-banner h1 { font-size: 1.18em; }
-    .nav-btn { font-size: 0.98em; padding: 0.7em 0.9em;}
-}
-.help-box {
-    background: #23273d;
-    border-left: 5px solid #56aaff;
-    border-radius: 8px;
-    padding: 1.1em 1.3em 1.05em 1.2em;
-    color: #bfcfff;
-    margin-bottom: 1.6em;
-    font-size: 1.08em;
-    line-height: 1.7;
-    box-shadow: 0 2px 8px #14182523;
-}
-.card {
-    background: #232a3b;
-    border-radius: 18px;
-    box-shadow: 0 6px 24px rgba(50,60,75,0.13);
-    padding: 2rem 2.1rem 1.5rem 2rem;
-    margin-bottom: 2.15rem;
-}
-.stTabs [data-baseweb='tab-list'] { background: none !important; }
-.stTabs [data-baseweb='tab'] { font-size: 1.13em; font-weight: 700; color: #c9e0ff !important; background: none;}
-.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; border-bottom:3px solid #4F8BF9; }
+
 .stButton > button {
     background: linear-gradient(90deg,#32449b,#485cdd);
     color: #fff !important;
     font-weight: 700 !important;
     border-radius: 10px !important;
-    padding: 0.73em 2.11em !important;
-    font-size: 1.06em !important;
-    margin: 0.19em 1em 0.3em 0;
-    border:none;
-    box-shadow: 0 1px 8px #202a3d51;
+    padding: 0.66em 2.05em !important;
+    font-size: 1.14em !important;border:none;
+    margin: 0.24em 1em 0.3em 0;
+    box-shadow:0 1.5px 11px #131a292b;
 }
 .stButton > button:hover, .stButton > button:focus {
     background: linear-gradient(90deg,#3970e8,#61a3fd) !important;
     color: #fff !important;
 }
 .stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
-    background: #22283a !important;
-    border-radius: 8px !important;
-    color: #e3f2ff !important;
-    border: 2px solid #3a4ece !important;
-    font-size: 1.13em !important;
-    font-weight: 500 !important;
+    background: #22283a !important;border-radius: 8px !important;
+    color: #e3f2ff !important;border: 2px solid #3a4ece !important;
+    font-size: 1.12em !important;font-weight: 500 !important;
 }
 .stTextInput > div>input:focus, .stTextArea textarea:focus, .stSelectbox>div>div:focus {
-    border-color: #61a3fd !important;
-    box-shadow: 0 0 8px #395fa7 !important;
+    border-color: #61a3fd !important;box-shadow: 0 0 8px #395fa7 !important;
 }
-.stDataFrame > div > div { border-radius: 12px !important; box-shadow:0 0 14px #171d2e;}
-.st-expander { background: #1b2134 !important; border-radius: 15px !important; color: #c3cff8;}
-/* Sidebar sections & lists */
+
+.card { background: #232a3b; border-radius: 18px; box-shadow: 0 6px 23px #1f233812; padding: 2rem 2.1rem 1.6rem 2rem; margin-bottom: 2.13rem;}
+.stDataFrame >div>div { border-radius: 11px !important; box-shadow:0 0 14px #151d2e;}
+
+.st-expander { background: #212947 !important; border-radius: 13px !important; color: #cde1f8;}
+
 [data-testid="stSidebar"] { background: #181c27 !important;}
-.sb-section { margin-bottom: 1.17em; }
-.sb-hdr { color: #8ebafa !important; font-weight: bold; font-size: 1.02em; margin-bottom:0.17em;}
-.sb-list { padding-left:1.1em; margin-top:0.17em; margin-bottom:0.54em;}
-.sb-list li { color: #e8eaff; font-size: 1em; margin-bottom:0.11em; line-height: 1.45;}
-hr.sb-hr { border: none; border-top: 1px solid #23305a; margin: 0.77em 0 0.85em 0;}
-/* Feedback animated slide-in */
-.stAlert {animation:slidein 0.5s;}
-@keyframes slidein { from { opacity:0;transform: translateY(-14px);} to { opacity: 1;transform:translateY(0);} }
+/* Sidebar: Responsive aspect grid, two columns max, boxes, mini-chips */
+.sidebar-aspect-grid { display: flex; flex-wrap: wrap; gap: 1.19em 1.3em; margin-bottom:1.9em;}
+.sidebar-aspect-group { min-width: 130px; max-width: 210px; background:#22283a; border-radius:13px;
+      padding:0.79em 0.98em 0.79em 0.98em; margin-bottom:0.22em;}
+.aspect-group-title { font-size:1.07em;color:#7fb6ff;font-weight:700; margin-bottom:0.25em; }
+.aspect-chip {
+    display:inline-block;background:#2d3658;color:#e2e9fa;border-radius: 6px;
+    padding: 0.23em 0.68em;margin:0.16em 0.19em 0 0;font-size:0.97em;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# App header
+# --- Compact, Responsive Header (not overflowing) ---
 st.markdown(
     """
-    <div class='top-banner'>
+    <div class="header-banner">
         <h1>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
-        <div class='desc'>Modern, AI-powered feedback analytics for all industries.</div>
+        <div class="desc">Modern, AI-powered feedback analytics for all industries.</div>
     </div>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True
 )
-# Simulated horizontal nav bar
-nav_buttons = [
-    ("🏠 Welcome", "welcome"),
-    ("💬 Single Review", "single"),
-    ("📊 Batch Reviews", "batch"),
-    ("📤 Upload Data", "upload"),
-    ("📈 Visualize", "visualize"),
-    ("🤖 AI Chat", "chat")
-]
-nav_query = st.query_params if hasattr(st, 'query_params') else {}
-current_section = nav_query.get("section", "single")  # default for now, might want to adjust logic
-nav_markup = '<div class="nav-row">'
-for label, section in nav_buttons:
-    selected = (section == current_section)
-    nav_markup += f'<button class="nav-btn" {"aria-current=page" if selected else ""}>{label}</button>'
-nav_markup += "</div>"
-st.markdown(nav_markup, unsafe_allow_html=True)
 
-######## Sidebar with improved list
+@st.cache_resource
+def load_zero_shot():
+    return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
+classifier = load_zero_shot()
+
 GROUPED_ASPECTS = {
     "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
     "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
@@ -153,31 +104,31 @@ GROUPED_ASPECTS = {
     "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
     "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
 }
-def render_grouped_aspects():
-    st.sidebar.markdown('<div class="sb-section"><span class="sb-hdr">Suggested Aspects</span></div>', unsafe_allow_html=True)
-    for group, aspects in GROUPED_ASPECTS.items():
-        st.sidebar.markdown(
-            f"<div class='sb-section'><span class='sb-hdr'>{group}</span><ul class='sb-list'>" +
-            "".join(f"<li>{asp}</li>" for asp in aspects) +
-            "</ul></div><hr class='sb-hr'>", unsafe_allow_html=True
-        )
-render_grouped_aspects()
 
-# ---- Main content nav: Help box ----
+def render_grouped_aspects_grid():
+    st.sidebar.markdown('<span style="font-size:1.13em; color:#b8cbff; font-weight:700;margin-bottom:0.7em;">Suggested Aspects</span>', unsafe_allow_html=True)
+    grid_html = '<div class="sidebar-aspect-grid">'
+    for group, aspects in GROUPED_ASPECTS.items():
+        grid_html += '<div class="sidebar-aspect-group">'
+        grid_html += f'<div class="aspect-group-title">{group}</div>'
+        for asp in aspects:
+            grid_html += f'<span class="aspect-chip">{asp}</span>'
+        grid_html += '</div>'
+    grid_html += '</div>'
+    st.sidebar.markdown(grid_html, unsafe_allow_html=True)
+
+render_grouped_aspects_grid()
+
+# --- Always-visible section help box ---
 st.markdown("""
-<div class="help-box">
-    <span style="font-size:1.15em; margin-right:0.38em;">💡</span>
+<div style='background: #222a3c; border-left: 5px solid #4F8BF9; border-radius: 8px;
+     padding: 1em 1.35em 1.03em 1.22em; color: #bfcfff; margin-bottom: 1.45em; font-size: 1.08em; line-height: 1.7; box-shadow: 0 2px 8px #14182523;'>
+    <span style="font-size:1.15em; margin-right:0.34em;">💡</span>
     Enter a review, choose aspects (comma-separated), then classify. For batch analysis, upload a CSV or paste reviews below.
     Results will show live sentiment, aspect rating, and charts. All results are processed securely and instantly in your browser.
 </div>
 """, unsafe_allow_html=True)
 
-# ---- Main content: Card container and workflow tabbed UI ----
-@st.cache_resource
-def load_zero_shot():
-    return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-
-classifier = load_zero_shot()
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 SAMPLE_COMMENTS = [
     "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
@@ -200,10 +151,11 @@ def sentiment_to_stars(sentiment, score):
         elif score > 0.7: return 2
         else: return 2
 
-st.markdown("""<div class="card">""", unsafe_allow_html=True)
-tab1, tab2 = st.tabs(["💬 Single Review", "📊 Batch Reviews"])
+tab1, tab2 = st.tabs([
+    "💬 Single Review", 
+    "📊 Batch Reviews"
+])
 with tab1:
-    st.subheader("Single Review")
     def generate_sample(): st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
     def clear_text(): st.session_state["review_text"] = ""
     col1, col2 = st.columns([1, 1])
@@ -247,11 +199,11 @@ with tab1:
                 st.markdown("</div></div>", unsafe_allow_html=True)
 
 with tab2:
-    st.subheader("Batch Reviews (CSV or Manual List)")
-    st.markdown(
-        "<div style='color:#7e8abb; font-size:1.08em; margin-bottom: 0.6em;'><b>Instructions:</b> Upload a UTF-8 CSV file named <code>review</code> or paste reviews (one per line) below. Enter aspects below and press 'Classify Batch'.</div>",
-        unsafe_allow_html=True
-    )
+    st.markdown("""
+        <div style='background: #212947;border-radius: 13px;padding:0.75em 1.22em 0.87em 1.25em;color:#e3f1fe;font-size:1.07em;
+          margin-bottom:1.1em;'><b>Instructions:</b> Upload a UTF-8 CSV file with a column <code>review</code> or paste reviews (one per line) below.<br> Enter aspects and press 'Classify Batch' to view results and charts.
+        </div>
+        """, unsafe_allow_html=True)
     with st.expander("Batch Input Options"):
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -333,7 +285,6 @@ with tab2:
                     file_name="classification_results.csv",
                     mime="text/csv"
                 )
-st.markdown("</div>", unsafe_allow_html=True)
 st.markdown(
     "<hr><div style='color:#8aa2ff;font-size:1em;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</div>",
     unsafe_allow_html=True
