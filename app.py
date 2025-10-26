@@ -4,82 +4,83 @@ import random
 from transformers import pipeline
 import plotly.express as px
 
-st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS FOR HEADER, TABS, SIDEBAR ASPECT GRID, DARK THEME ---
+# ---- Modern CSS for wide layout, buttons, tabs, cards, sidebar grid ----
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 <style>
-body, .stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; color: #f3f6fb !important; }
+.stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; color: #f3f6fb !important;}
+.main-container {max-width: 1180px; margin: auto;}
 .header-banner {
-    max-width: 820px; margin: 2.1em auto 1em auto; 
     background: linear-gradient(90deg,#4F8BF9 65%, #2D5AAB 100%);
-    border-radius:1.15rem; padding:1.17em 2.1em 1.13em 2.1em; box-shadow:0 2px 16px #22203438;
-    text-align:left; border-bottom: 4px solid #43a2ff;
+    border-radius:1.15rem; padding:1.17em 2.3em 1.13em 2.3em; box-shadow:0 2px 16px #23274629;
+    text-align:left; border-bottom: 4px solid #43a2ff; margin-bottom: 2em;
 }
-.header-banner h1 { font-size: 2.16em; font-weight: 900; margin: 0; color: #fff; line-height:1.1; }
-.header-banner .desc { font-weight: 500; font-size: 1.06em; color: #dbe2ff; margin-top:0.25em; }
-
-.stTabs [data-baseweb='tab-list'] { background: none !important;}
+.header-banner h1 { font-size: 2.07em; font-weight: 900; margin: 0 0 0.14em 0; color: #fff; line-height:1.1; }
+.header-banner .desc { font-weight: 500; font-size: 1.12em; color: #e2ebff; margin-top:0.19em; }
+.stTabs [data-baseweb='tab-list'] { background: none !important; justify-content:center;}
 .stTabs [data-baseweb='tab'] {
     border-radius: 22px 22px 0 0 !important;
     margin-right: 1.2em !important;
-    font-size: 1.19em !important;
-    font-weight: 800 !important;
-    color: #adc8ff !important;
-    padding: 0.82em 2.2em 0.82em 2.2em !important;
-    background: #232a3b !important;
-    box-shadow: 0 2.5px 18px #22283a34;
+    font-size: 1.18em !important; font-weight: 800 !important; color: #adc8ff !important;
+    padding: 0.89em 2.33em 0.85em 2.33em !important;
+    background: #232a3b !important; box-shadow: 0 2.5px 16px #22283a35;
     border: 2.1px solid #3F59B844;
 }
 .stTabs [data-baseweb='tab'][aria-selected='true'] {
     color: #fff !important; background: linear-gradient(90deg, #527afe, #3553c3 90%);
-    border-bottom: 4.1px solid #8dc7fc !important;
-    box-shadow: 0 5px 22px #325aee18;
+    border-bottom: 3.1px solid #8dc7fc !important; box-shadow: 0 2px 12px #325aee18;
 }
-
 .stButton > button {
     background: linear-gradient(90deg,#32449b,#485cdd);
-    color: #fff !important;
-    font-weight: 700 !important;
-    border-radius: 10px !important;
-    padding: 0.66em 2.05em !important;
-    font-size: 1.14em !important;border:none;
-    margin: 0.24em 1em 0.3em 0;
-    box-shadow:0 1.5px 11px #131a292b;
-}
-.stButton > button:hover, .stButton > button:focus {
-    background: linear-gradient(90deg,#3970e8,#61a3fd) !important;
-    color: #fff !important;
-}
+    color: #fff !important; font-weight: 700 !important; border-radius: 8px !important;
+    padding: 0.68em 2.2em; font-size: 1.09em !important;border:none;box-shadow:0 1px 9px #18113319;}
+.stButton>button:hover, .stButton>button:focus {
+    background: linear-gradient(90deg,#3970e8,#61a3fd) !important; color: #fff !important;}
 .stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
-    background: #22283a !important;border-radius: 8px !important;
-    color: #e3f2ff !important;border: 2px solid #3a4ece !important;
-    font-size: 1.12em !important;font-weight: 500 !important;
-}
+    background: #22283a !important; border-radius: 8px !important; color: #e3f2ff !important;
+    border: 2px solid #3a4ece !important; font-size: 1.10em !important; font-weight: 500 !important;}
 .stTextInput > div>input:focus, .stTextArea textarea:focus, .stSelectbox>div>div:focus {
-    border-color: #61a3fd !important;box-shadow: 0 0 8px #395fa7 !important;
-}
-
-.card { background: #232a3b; border-radius: 18px; box-shadow: 0 6px 23px #1f233812; padding: 2rem 2.1rem 1.6rem 2rem; margin-bottom: 2.13rem;}
+    border-color: #61a3fd !important; box-shadow: 0 0 8px #395fa7 !important;}
+.card { background: #232a3b; border-radius: 13px;
+    box-shadow: 0 5px 20px #1c223510;
+    padding: 1.5rem 2.1rem 1.43rem 2.1rem; margin-bottom: 1.5rem;}
 .stDataFrame >div>div { border-radius: 11px !important; box-shadow:0 0 14px #151d2e;}
-
-.st-expander { background: #212947 !important; border-radius: 13px !important; color: #cde1f8;}
-
-[data-testid="stSidebar"] { background: #181c27 !important;}
-/* Sidebar: Responsive aspect grid, two columns max, boxes, mini-chips */
-.sidebar-aspect-grid { display: flex; flex-wrap: wrap; gap: 1.19em 1.3em; margin-bottom:1.9em;}
-.sidebar-aspect-group { min-width: 130px; max-width: 210px; background:#22283a; border-radius:13px;
-      padding:0.79em 0.98em 0.79em 0.98em; margin-bottom:0.22em;}
-.aspect-group-title { font-size:1.07em;color:#7fb6ff;font-weight:700; margin-bottom:0.25em; }
+.st-expander { background: #22304a !important; border-radius: 14px !important; color: #e3eefd;}
+[data-testid="stSidebar"] { background: #181c27 !important; min-width:300px; width:340px;}
+/* Sidebar chips in expandable grid */
+.sidebar-aspect-grid { display: flex; flex-wrap: wrap; gap:1em 0.7em; margin-bottom: 1.2em;}
+.sidebar-aspect-group { min-width: 140px; max-width: 210px; background:#232a3b; border-radius:10px;
+     padding:0.61em 0.77em 0.66em 0.77em; margin-bottom:0.2em;}
+.aspect-group-title { font-size:1.01em;color:#7fb6ff;font-weight:700; margin-bottom:0.13em; }
 .aspect-chip {
-    display:inline-block;background:#2d3658;color:#e2e9fa;border-radius: 6px;
-    padding: 0.23em 0.68em;margin:0.16em 0.19em 0 0;font-size:0.97em;
+    display:inline-block;background:#293053;color:#f2f4ff;border-radius: 7px;
+    padding: 0.21em 0.71em;margin:0.12em 0.20em 0.11em 0;font-size:0.93em;letter-spacing:0.02em;}
+/* Output card */
+.output-card {
+    background: #232a3b; border-radius:11px; box-shadow: 0 2px 12px #191c2e35; 
+    padding: 1.18em 2.05em 1.12em 2.07em; margin-bottom:1.27em;
+    color: #f3f6fb; font-size:1.15em; letter-spacing:0.006em;
 }
+.output-stars { margin:0.16em 0 0.29em 0; font-size:1.31em;}
+.senti-positive { color:#90ffb8;font-weight:700;}
+.senti-label { font-weight:900; font-size:1.13em; margin-right:0.24em;}
+.senti-score { color:#b5b9fc; font-size:0.98em; margin-left:0.12em;}
+.aspect-row { display:flex;align-items:center;margin:0.16em 0;}
+.aspect-dot {
+    width:15px;height:15px;display:inline-block;border-radius:24px;
+    background:linear-gradient(145deg,#5ae0fb,#1e61e6 80%);
+    margin-right: 0.24em;}
+.aspect-dot-lo {background:linear-gradient(145deg,#adc6ff,#434766 80%);}
+.aspect-score {font-size:1.03em;font-weight:500;margin-left:0.27em;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- Compact, Responsive Header (not overflowing) ---
+# --- Wide and centered main container ---
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
+
+# --- Header ---
 st.markdown(
     """
     <div class="header-banner">
@@ -105,8 +106,19 @@ GROUPED_ASPECTS = {
     "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
 }
 
-def render_grouped_aspects_grid():
-    st.sidebar.markdown('<span style="font-size:1.13em; color:#b8cbff; font-weight:700;margin-bottom:0.7em;">Suggested Aspects</span>', unsafe_allow_html=True)
+# --- Sidebar: Help at top, then expandable aspects grid ---
+st.sidebar.markdown(
+    """
+    <div style='background: #202c45; border-left: 4px solid #4F8BF9; border-radius: 10px; padding: 1em 1.3em 1em 1em;
+    margin-bottom: 1.1em; color: #bae2ff; font-size: 1.09em; line-height: 1.7;'>
+        <span style="font-size:1.13em; margin-right:0.33em;">💡</span>
+        Enter a review, choose aspects (comma-separated), then classify. For batch analysis, upload a CSV or paste reviews below. Results will show live sentiment, aspect rating, and charts. All results are processed securely and instantly in your browser.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+with st.sidebar.expander("Suggested Aspects", expanded=False):
     grid_html = '<div class="sidebar-aspect-grid">'
     for group, aspects in GROUPED_ASPECTS.items():
         grid_html += '<div class="sidebar-aspect-group">'
@@ -115,20 +127,9 @@ def render_grouped_aspects_grid():
             grid_html += f'<span class="aspect-chip">{asp}</span>'
         grid_html += '</div>'
     grid_html += '</div>'
-    st.sidebar.markdown(grid_html, unsafe_allow_html=True)
+    st.markdown(grid_html, unsafe_allow_html=True)
 
-render_grouped_aspects_grid()
-
-# --- Always-visible section help box ---
-st.markdown("""
-<div style='background: #222a3c; border-left: 5px solid #4F8BF9; border-radius: 8px;
-     padding: 1em 1.35em 1.03em 1.22em; color: #bfcfff; margin-bottom: 1.45em; font-size: 1.08em; line-height: 1.7; box-shadow: 0 2px 8px #14182523;'>
-    <span style="font-size:1.15em; margin-right:0.34em;">💡</span>
-    Enter a review, choose aspects (comma-separated), then classify. For batch analysis, upload a CSV or paste reviews below.
-    Results will show live sentiment, aspect rating, and charts. All results are processed securely and instantly in your browser.
-</div>
-""", unsafe_allow_html=True)
-
+# ---- Main tabs (2 large, rounded, styled) ----
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 SAMPLE_COMMENTS = [
     "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
@@ -151,10 +152,7 @@ def sentiment_to_stars(sentiment, score):
         elif score > 0.7: return 2
         else: return 2
 
-tab1, tab2 = st.tabs([
-    "💬 Single Review", 
-    "📊 Batch Reviews"
-])
+tab1, tab2 = st.tabs(["💬 Single Review", "📊 Batch Reviews"])
 with tab1:
     def generate_sample(): st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
     def clear_text(): st.session_state["review_text"] = ""
@@ -178,10 +176,11 @@ with tab1:
                 sentiment_emoji = {"positive": "😊", "neutral": "😐", "negative": "😞"}
                 stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
                 st.markdown(
-                    f"<div class='card' style='background: #222945;'>"
-                    f"<h4>Sentiment: <span style='color:#8fffa4;'>{sentiment_emoji.get(sentiment_result['labels'][0],'')}</span> <span style='font-size:1.2em;'>{sentiment_result['labels'][0].capitalize()}</span> <span style='color:#b5baff;'>(Score: {sentiment_result['scores'][0]:.2f})</span></h4>"
-                    f"<h4>Star Rating: {'⭐'*stars} ({stars}/5)</h4>"
-                    f"<h5 style='color:#9bc8ff'>Aspect Relevance Scores:</h5><div>",
+                    f'''<div class="output-card">
+                      <span class="senti-label">Sentiment:</span> <span class="senti-positive">{sentiment_emoji.get(sentiment_result['labels'][0],'')}</span> <b class="senti-positive">{sentiment_result['labels'][0].capitalize()}</b>
+                      <span class="senti-score">(Score: {sentiment_result['scores'][0]:.2f})</span>
+                      <div class="output-stars">Star Rating: {'⭐'*stars} ({stars}/5)</div>
+                      <div style="font-size:1.05em;color:#a7c3fe;font-weight:700;margin:0.23em 0 0.35em 0;">Aspect Relevance Scores:</div>''',
                     unsafe_allow_html=True
                 )
                 df = pd.DataFrame({
@@ -189,19 +188,21 @@ with tab1:
                     "Score": aspect_result["scores"]
                 })
                 for idx, row in df.iterrows():
-                    score = row["Score"]
-                    color = "#63b9ff" if score > 0.5 else "#788ba7"
-                    emoji = "🔵" if score > 0.7 else "⚪"
+                    colorclass = "aspect-dot" if row["Score"] > 0.6 else "aspect-dot aspect-dot-lo"
                     st.markdown(
-                        f"<span style='font-size:1.09em; color:{color};'>{emoji} <b>{row['Aspect']}</b>: {score:.2f}</span>",
-                        unsafe_allow_html=True
+                        f'''<div class="aspect-row">
+                            <span class="{colorclass}"></span>
+                            <span style="font-weight:700;color:#7ecefa;">{row['Aspect']}</span>
+                            <span class="aspect-score">: {row["Score"]:.2f}</span>
+                        </div>''', unsafe_allow_html=True
                     )
-                st.markdown("</div></div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
     st.markdown("""
-        <div style='background: #212947;border-radius: 13px;padding:0.75em 1.22em 0.87em 1.25em;color:#e3f1fe;font-size:1.07em;
-          margin-bottom:1.1em;'><b>Instructions:</b> Upload a UTF-8 CSV file with a column <code>review</code> or paste reviews (one per line) below.<br> Enter aspects and press 'Classify Batch' to view results and charts.
+        <div style='background: #22304a;border-radius: 11px;padding:0.7em 1.12em 0.81em 1.18em;color:#e3f1fe;font-size:1.06em;
+          margin-bottom:1.05em;'><b>Instructions:</b> Upload a UTF-8 CSV file with a column <code>review</code> or paste reviews (one per line) below.<br>
+          Enter aspects and press 'Classify Batch' to view results and charts.
         </div>
         """, unsafe_allow_html=True)
     with st.expander("Batch Input Options"):
@@ -246,36 +247,23 @@ with tab2:
                         })
                 results_df = pd.DataFrame(results)
                 st.markdown(
-                    "<div class='card' style='background: #222945;'><h5 style='color:#9bc8ff'>Batch Classification Results:</h5>",
+                    '''<div class="output-card"><h5 style="color:#a7c3fe;font-size:1.11em;">Batch Classification Results:</h5>''',
                     unsafe_allow_html=True
                 )
                 st.dataframe(results_df)
                 st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown("<div class='card' style='background: #232a3b;'>", unsafe_allow_html=True)
+                st.markdown('''<div class="card" style="background: #232a3b;">''', unsafe_allow_html=True)
                 st.markdown("<h5 style='color:#9bc8ff'>Rating Distribution:</h5>", unsafe_allow_html=True)
-                fig1 = px.pie(
-                    results_df, names="star_rating", title="Star Rating Distribution", 
-                    color_discrete_sequence=px.colors.sequential.Purples, hole=0.3
-                )
+                fig1 = px.pie(results_df, names="star_rating", title="Star Rating Distribution", color_discrete_sequence=px.colors.sequential.Purples, hole=0.3)
                 fig1.update_traces(textfont_color='white', marker=dict(line=dict(color='#222945', width=2)))
-                fig1.update_layout(
-                    title_font_color="#bacaff",
-                    paper_bgcolor="#232a3b",
-                    plot_bgcolor="#232a3b",
-                    font_color="#e6eafe"
-                )
+                fig1.update_layout(title_font_color="#bacaff", paper_bgcolor="#232a3b", plot_bgcolor="#232a3b", font_color="#e6eafe")
                 st.plotly_chart(fig1, use_container_width=True)
                 st.markdown("<h5 style='color:#9bc8ff'>Sentiment Analysis:</h5>", unsafe_allow_html=True)
                 fig2 = px.bar(
                     results_df, x="sentiment", title="Sentiment Distribution", color="sentiment",
                     color_discrete_map={"positive":"#7ef49e","neutral":"#f7dd8f","negative":"#f47e7e"}
                 )
-                fig2.update_layout(
-                    title_font_color="#bacaff",
-                    paper_bgcolor="#232a3b",
-                    plot_bgcolor="#232a3b",
-                    font_color="#e6eafe"
-                )
+                fig2.update_layout(title_font_color="#bacaff", paper_bgcolor="#232a3b", plot_bgcolor="#232a3b", font_color="#e6eafe")
                 st.plotly_chart(fig2, use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
                 csv_result = results_df.to_csv(index=False).encode("utf-8")
@@ -285,6 +273,8 @@ with tab2:
                     file_name="classification_results.csv",
                     mime="text/csv"
                 )
+
+st.markdown("</div>", unsafe_allow_html=True)
 st.markdown(
     "<hr><div style='color:#8aa2ff;font-size:1em;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</div>",
     unsafe_allow_html=True
