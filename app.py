@@ -4,8 +4,10 @@ import random
 from transformers import pipeline
 import plotly.express as px
 
+# Page config
 st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", layout="wide")
 
+# Load model with caching
 @st.cache_resource
 def load_zero_shot():
     return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
@@ -43,7 +45,7 @@ SAMPLE_COMMENTS = [
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
 
-# Sidebar with grouped aspects display
+# Sidebar with grouped aspects info
 def render_grouped_aspects():
     html_str = "<h2 style='color:#4F8BF9; margin-bottom:4px;'>📝 How to Use</h2>"
     html_str += "<ul style='margin-top:0; padding-left:20px;'>"
@@ -61,13 +63,23 @@ def render_grouped_aspects():
 
 render_grouped_aspects()
 
-# Main Page Header Styling
+# Main Page Header Styling & Theme
 st.markdown(
     """
+    <style>
+    body {
+        background-color: #f9fafb;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .reportview-content {
+        color: #333333;
+    }
+    </style>
+
     <div style="background:linear-gradient(90deg, #4F8BF9, #2D5AAB);
-    padding: 15px; border-radius: 8px; box-shadow: 2px 2px 10px #888;">
+    padding: 20px; border-radius: 12px; box-shadow: 3px 3px 15px rgba(0,0,0,0.1);">
         <h1 style="color: white; margin:0;">🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
-        <p style="color: #d0d0d0; font-size:1.1em; margin-top: 8px;">Analyze customer reviews for sentiment and aspect relevance with manual aspect input.</p>
+        <p style="color: #d0d0d0; font-size:1.1em; margin-top: 8px;">Analyze customer reviews with sentiment, aspect relevance, and star ratings.</p>
     </div>
     """,
     unsafe_allow_html=True
@@ -77,7 +89,7 @@ tab_style = """
     <style>
     .stTabs [data-baseweb='tab'] {
         font-size: 1.3em !important;
-        padding: 0.5em 1.5em !important;
+        padding: 0.6em 2em !important;
     }
     </style>
 """
@@ -165,8 +177,13 @@ with tab2:
         "<div style='color:#4F8BF9; font-size:1.1em;'><b>Instructions:</b> Upload a CSV file encoded in <b>UTF-8</b> with a header named <code>review</code> (one review per row), or paste multiple comments below (one per line). Enter aspects comma-separated for analysis.</div>",
         unsafe_allow_html=True
     )
-    csv_file = st.file_uploader("Upload a CSV with a 'review' column:", type=["csv"])
-    manual_text = st.text_area("Or paste multiple comments here (one per line):", height=120)
+    with st.expander("Batch Input Options"):
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            csv_file = st.file_uploader("Upload a CSV with a 'review' column:", type=["csv"])
+        with col2:
+            manual_text = st.text_area("Or paste multiple comments here (one per line):", height=120)
+
     aspects = st.text_input("Aspects/Categories for batch (comma-separated):", value="", key="batch_aspects_text")
 
     reviews = []
@@ -179,7 +196,7 @@ with tab2:
             st.warning("Your CSV must contain a column named 'review'.")
         else:
             reviews = dataframe['review'].dropna().astype(str).tolist()
-    elif manual_text.strip():
+    elif manual_text and manual_text.strip():
         reviews = [line.strip() for line in manual_text.split("\n") if line.strip()]
 
     if reviews:
@@ -219,5 +236,3 @@ with tab2:
                     file_name="classification_results.csv",
                     mime="text/csv"
                 )
-
-st.markdown("<hr><span style='color:gray;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</span>", unsafe_allow_html=True)
