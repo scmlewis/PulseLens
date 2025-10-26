@@ -7,6 +7,80 @@ import plotly.express as px
 # Page config
 st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", layout="wide")
 
+# Inject granular custom CSS for modern UI look
+st.markdown("""
+<style>
+/* Body background and font */
+body {
+    background-color: #f0f4f9;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Main header styling */
+h1 {
+    font-weight: 900;
+    font-size: 2.8em;
+    background: linear-gradient(90deg, #4F8BF9, #2D5AAB);
+    -webkit-background-clip: text;
+    color: transparent;
+    margin-bottom: 0.2em;
+}
+
+/* Section headers */
+h2, h3 {
+    color: #3a3a3a;
+    font-weight: 600;
+}
+
+/* Input fields styling */
+.stTextInput > div > input, .stTextArea textarea {
+    border: 2px solid #4F8BF9 !important;
+    border-radius: 8px !important;
+    padding: 0.5em !important;
+    font-size: 1em !important;
+    transition: all 0.25s ease;
+}
+.stTextInput > div > input:focus, .stTextArea textarea:focus {
+    border-color: #2D5AAB !important;
+    box-shadow: 0 0 6px #2D5AAB !important;
+    outline: none !important;
+}
+
+/* Buttons styling */
+.stButton > button {
+    background-color: #2D5AAB !important;
+    color: white !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    padding: 0.75em 2em !important;
+    transition: background-color 0.3s ease !important;
+    font-size: 1.1em !important;
+}
+.stButton > button:hover {
+    background-color: #1a3c66 !important;
+}
+
+/* Tabs styling */
+.css-1uq7w8f {
+    font-size: 1.3em !important;
+    font-weight: 700 !important;
+    color: #2D5AAB !important;
+}
+
+/* Dataframe styling */
+.stDataFrame > div > div {
+    border-radius: 12px !important;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    margin-bottom: 1em !important;
+}
+
+/* Sidebar links / list styling */
+.sidebar-content ul {
+    padding-left: 20px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Load model with caching
 @st.cache_resource
 def load_zero_shot():
@@ -63,19 +137,8 @@ def render_grouped_aspects():
 
 render_grouped_aspects()
 
-# Main Page Header Styling & Theme
 st.markdown(
     """
-    <style>
-    body {
-        background-color: #f9fafb;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    .reportview-content {
-        color: #333333;
-    }
-    </style>
-
     <div style="background:linear-gradient(90deg, #4F8BF9, #2D5AAB);
     padding: 20px; border-radius: 12px; box-shadow: 3px 3px 15px rgba(0,0,0,0.1);">
         <h1 style="color: white; margin:0;">🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
