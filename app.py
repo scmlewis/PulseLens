@@ -44,26 +44,7 @@ st.markdown("""
 .st-expander { background: #202b44 !important; border-radius: 14px !important; color: #e3eefd;}
 [data-testid="stSidebar"] { background: #181c27 !important; min-width:170px; max-width:410px; width:340px;}
 .sidebar-how-header { color: #7fc5ff; font-size: 1.23em; font-weight: 900; margin-bottom: 0.15em; margin-top: 0.07em; letter-spacing: 0.01em;}
-.sidebar-scroll-x {width: 100%; overflow-x: auto;}
-.sidebar-aspect-grid { display: flex; flex-direction: column; gap:0.45em 0; min-width: 270px; max-width:390px; box-sizing:border-box;}
-.sidebar-aspect-group { background: #232a3b; border-radius:7px; margin-bottom:0.09em;
-    margin-top:0.13em; padding: 0.33em 1.09em 0.41em 0.81em; box-shadow: 0 0.5px 2px #23306027; min-width:170px; max-width: 388px; width:96%;}
-.aspect-group-title { font-size: 1.09em; color:#8eb5ff; font-weight:700; letter-spacing:0.01em;
-    width:100%; padding-bottom:0.06em; margin-bottom:0.00em; line-height:1.26;}
-.aspect-chips-row { display: flex; flex-wrap: wrap; gap:0.28em 0.49em; margin-top:0.1em;}
-.aspect-chip { display:inline-block;background:#293053;color:#e7eefe;border-radius:6.5px;
-    padding: 0.22em 0.87em;margin:0.04em 0 0.04em 0;font-size:0.97em;}
-.output-card { background: #232a3b; border-radius:11px; box-shadow: 0 2px 12px #191c2e35; padding: 1.08em 2em; margin-bottom:0.18em; color: #f3f6fb; font-size:1.15em; letter-spacing:0.006em;}
-.output-stars { margin:0.12em 0 0.19em 0; font-size:1.28em;}
-.senti-positive { color:#90ffb8;font-weight:700;}
-.senti-label { font-weight:900; font-size:1.13em; margin-right:0.24em;}
-.senti-score { color:#b5b9fc; font-size:0.98em; margin-left:0.12em;}
-.aspect-row { display:flex;align-items:center;margin:0.09em 0;}
-.aspect-dot { width:15px;height:15px;display:inline-block;border-radius:24px;
-    background:linear-gradient(145deg,#5ae0fb,#1e61e6 80%); margin-right: 0.24em;}
-.aspect-dot-lo {background:linear-gradient(145deg,#adc6ff,#434766 80%);}
-.aspect-score {font-size:1.03em;font-weight:500;margin-left:0.27em; color:#77ebfa;}
-.aspect-label-list {margin:0.37em 0 0.12em 1px;}
+.aspect-list-native { margin-bottom: 0.95em; }
 @media (min-width: 801px) {
     [data-testid="stSidebar"][aria-expanded="false"] + div > .main-container {
         width: 99vw !important; max-width: none;
@@ -97,6 +78,7 @@ GROUPED_ASPECTS = {
     "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
     "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
 }
+
 st.sidebar.markdown('<div class="sidebar-how-header">How to use</div>', unsafe_allow_html=True)
 st.sidebar.markdown("""
 <div style='background: #202c45; border-left: 4px solid #4F8BF9; border-radius: 10px; padding: 1em 1.2em 1em 1em; margin-bottom: 0.7em; color: #bae2ff; font-size: 1.09em; line-height: 1.6;'>
@@ -105,21 +87,14 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 with st.sidebar.expander("Suggested Aspects", expanded=True):
-    st.markdown(
-        '<div class="sidebar-scroll-x"><div class="sidebar-aspect-grid">' +
-        ''.join(
-            f'''
-            <div class="sidebar-aspect-group">
-                <div class="aspect-group-title">{group}</div>
-                <div class="aspect-chips-row">
-                    {''.join(f'<span class="aspect-chip">{asp}</span>' for asp in aspects)}
-                </div>
-            </div>
-            '''
-            for group, aspects in GROUPED_ASPECTS.items()
-        ) +
-        '</div></div>', unsafe_allow_html=True
-    )
+    for group, aspects in GROUPED_ASPECTS.items():
+        st.markdown(f"**{group}**", unsafe_allow_html=False)
+        st.markdown(
+            " ".join([f"`{asp}`" for asp in aspects]),
+            unsafe_allow_html=False,
+            help=None
+        )
+        st.markdown("")  # Add space between groups
 
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
 SAMPLE_COMMENTS = [
@@ -195,8 +170,6 @@ with tab1:
                     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Include the batch and about/help tabs as previously pasted in PART 2
-# (You can simply copy from my last response - it fits after the tab1 code you see here.)
 with tab2:
     if 'uploaded_filename' not in st.session_state:
         st.session_state['uploaded_filename'] = ''
@@ -349,3 +322,4 @@ st.markdown(
     "<hr><div style='color:#8aa2ff;font-size:1em;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</div>",
     unsafe_allow_html=True
 )
+
