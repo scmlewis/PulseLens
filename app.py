@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ---- Custom CSS for compact spacing, sidebar, etc. ----
+# ---- Improved CSS for compactness, correct expander width, header/box spacing ----
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -36,24 +36,23 @@ st.markdown("""
 .stButton > button:hover, .stButton>button:focus { background: linear-gradient(90deg,#3970e8,#61a3fd) !important; color: #fff !important;}
 .stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
     background: #22283a !important; border-radius: 8px !important; color: #e3f2ff !important;
-    border: 2px solid #3a4ece !important; font-size: 1.13em !important; font-weight: 500 !important; margin-bottom:0 !important;}
-.stTextInput, .stTextArea, .stSelectbox { margin-top: -0.18em !important; margin-bottom: 0.18em !important; }
-.stTextInput label, .stTextArea label, .stSelectbox label { margin-bottom:0.13em !important; }
+    border: 2px solid #3a4ece !important; font-size: 1.13em !important; font-weight: 500 !important; margin-top: 0.04em !important;}
+.stTextInput, .stTextArea, .stSelectbox { margin-top: 0 !important; margin-bottom: 0.15em !important; }
+.stTextInput label, .stTextArea label, .stSelectbox label { margin-bottom:0.08em !important; }
 .card { background: #232a3b; border-radius: 13px; box-shadow: 0 5px 20px #1c223510;
     padding: 1.15rem 2.1rem 1.1rem 2.1rem; margin-bottom: 1.05em;}
 .stDataFrame >div>div { border-radius: 11px !important; box-shadow:0 0 14px #151d2e;}
-.st-expander { background: #202b44 !important; border-radius: 14px !important; color: #e3eefd;}
-[data-testid="stSidebar"] { background: #181c27 !important; min-width:300px; width:350px;}
+.st-expander { background: #202b44 !important; border-radius: 14px !important; color: #e3eefd; max-width: 100vw !important;}
+[data-testid="stSidebar"] { background: #181c27 !important; min-width:300px; max-width:420px; width:340px;}
 .sidebar-how-header { font-size: 1.24em; font-weight: 900; color: #7fc5ff; margin-bottom: 0.14em; margin-top: 0.07em; letter-spacing: 0.01em;}
-.sidebar-aspect-grid { display: flex; flex-direction: column; gap:0.45em 0;
-    margin-bottom: .7em; margin-top:0em; width:100%;}
+.sidebar-aspect-grid { display: flex; flex-direction: column; gap:0.45em 0; margin-bottom:.4em; margin-top:0em; width:99vw; max-width:390px;}
 .sidebar-aspect-group { background: #232a3b; border-radius:7px; margin-bottom:0.09em;
-    margin-top:0.13em; padding: 0.33em 1.09em 0.41em 0.81em; box-shadow: 0 0.5px 2px #23306027; width:99%;}
+    margin-top:0.13em; padding: 0.33em 1.09em 0.41em 0.81em; box-shadow: 0 0.5px 2px #23306027; min-width:180px; width:96%; max-width:100%;}
 .aspect-group-title { font-size: 1.09em; color:#8eb5ff; font-weight:700; letter-spacing:0.01em;
-    width:100%; padding-bottom:0.07em; margin-bottom:0.02em; line-height:1.26;}
-.aspect-chips-row { display: flex; flex-wrap: wrap; gap:0.3em 0.5em; margin-top:0.13em;}
-.aspect-chip { display:inline-block;background:#293053;color:#e7eefe;border-radius: 6.5px;
-    padding: 0.22em 0.87em;margin:0.04em 0.05em 0.04em 0;font-size:0.97em;letter-spacing:0.01em;}
+    width:100%; padding-bottom:0.06em; margin-bottom:0.00em; line-height:1.26;}
+.aspect-chips-row { display: flex; flex-wrap: wrap; gap:0.28em 0.49em; margin-top:0.1em;}
+.aspect-chip { display:inline-block;background:#293053;color:#e7eefe;border-radius:6.5px;
+    padding: 0.22em 0.87em;margin:0.04em 0 0.04em 0;font-size:0.97em;}
 .output-card { background: #232a3b; border-radius:11px; box-shadow: 0 2px 12px #191c2e35;
     padding: 1.08em 2em; margin-bottom:1.12em; color: #f3f6fb; font-size:1.15em; letter-spacing:0.006em;}
 .output-stars { margin:0.12em 0 0.19em 0; font-size:1.28em;}
@@ -74,7 +73,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
-# Header
+
+# HEADER
 st.markdown("""
 <div class="header-banner">
     <h1>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
@@ -97,7 +97,7 @@ GROUPED_ASPECTS = {
     "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
 }
 
-# --- Sidebar: How to use/help ---
+# Sidebar: How to use/help
 st.sidebar.markdown('<div class="sidebar-how-header">How to use</div>', unsafe_allow_html=True)
 st.sidebar.markdown("""
 <div style='background: #202c45; border-left: 4px solid #4F8BF9; border-radius: 10px; padding: 1em 1.2em 1em 1em; margin-bottom: 0.7em; color: #bae2ff; font-size: 1.09em; line-height: 1.6;'>
@@ -140,7 +140,6 @@ def sentiment_to_stars(sentiment, score):
         elif score > 0.7: return 2
         else: return 2
 
-# --- Callbacks for error-free session state changes ---
 def set_sample():
     st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
 def clear_text():
@@ -152,15 +151,15 @@ tab1, tab2, tab3 = st.tabs(TABS)
 with tab1:
     if "review_text" not in st.session_state:
         st.session_state["review_text"] = ""
-    st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;margin-bottom:0.07em;"><b>💬 Enter a review</b></span>', unsafe_allow_html=True)
+    st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;display:block;margin-bottom:0.06em;">💬 Enter a review</span>', unsafe_allow_html=True)
     text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
-    st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.18em; margin-bottom: 0.12em;">', unsafe_allow_html=True)
-    st.button("✨ Generate Sample", on_click=set_sample)
-    st.button("🧹 Clear", on_click=clear_text)
+    st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.11em;">', unsafe_allow_html=True)
+    st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
+    st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;margin-bottom:0.04em;"><b>🔎 Aspects/Categories (comma-separated)</b></span>', unsafe_allow_html=True)
+    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.04em;">🔎 Aspects/Categories (comma-separated)</span>', unsafe_allow_html=True)
     aspects = st.text_input("", value="", key="aspects_text", label_visibility="collapsed")
-    st.markdown('<div style="display:flex;justify-content:center;margin-top:0.55em;margin-bottom:0.7em;">', unsafe_allow_html=True)
+    st.markdown('<div style="display:flex;justify-content:center;margin-top:0.31em;margin-bottom:0.47em;">', unsafe_allow_html=True)
     if st.button("🚦 Classify Now", key="classify_single_btn2"):
         if not text.strip():
             st.error("Please enter a review.")
@@ -210,11 +209,12 @@ with tab2:
         col1, col2 = st.columns([1, 1])
         uploaded = None
         with col1:
-            uploaded = st.file_uploader("🗂️ CSV Upload", type=["csv"], key="batch_csv")
+            st.markdown('<span style="color:#f9d66e;font-size:1.08em;font-weight:700;display:block;margin-bottom:0.04em;">🗂️ CSV Upload</span>', unsafe_allow_html=True)
+            uploaded = st.file_uploader("", type=["csv"], key="batch_csv", help="Upload your .csv file with review column.")
         with col2:
-            st.markdown('<span style="color:#8eaffc;font-size:1.05em;font-weight:700;margin-bottom:0.01em;"><b>📋 Paste reviews (one per line)</b></span>', unsafe_allow_html=True)
+            st.markdown('<span style="color:#8eaffc;font-size:1.05em;font-weight:700;display:block;margin-bottom:0.04em;">📋 Paste reviews (one per line)</span>', unsafe_allow_html=True)
             manual_text = st.text_area("", height=120, key="batch_manual_text", label_visibility="collapsed")
-    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;margin-bottom:0.01em;"><b>🔎 Aspects/Categories for batch</b></span>', unsafe_allow_html=True)
+    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.01em;">🔎 Aspects/Categories for batch</span>', unsafe_allow_html=True)
     aspects = st.text_input("", value="", key="batch_aspects_text", label_visibility="collapsed")
     reviews = []
     uploaded_filename = ''
