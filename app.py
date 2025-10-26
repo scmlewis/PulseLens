@@ -6,68 +6,80 @@ import plotly.express as px
 
 st.set_page_config(page_title="Customer Feedback Sentiment & Aspect Classifier", page_icon="🧠", initial_sidebar_state="expanded")
 
-# Granular CSS for a comfortable, modern UX
+# --- Modernized CSS and layout (reference-inspired) ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap" rel="stylesheet">
 <style>
-html, body, .reportview-container { background: #181c27 !important; }
-
-body, .st-emotion-cache-1v0mbdj { font-family: 'Segoe UI', sans-serif !important; color: #f3f6fb !important; }
-.stApp { background: #181c27 !important; }
-.st-bq { background: none !important; }
-h1, h2, h3, h4, h5 { font-family: 'Segoe UI', sans-serif !important; }
-h1 { color: #fff; font-weight: bold; font-size: 2.3em; }
-.st-emotion-cache-1629p8f { color: #fff; }
-.stMarkdown, .css-1c7y2zd { color: #f3f6fb !important; }
-
+body, .stApp { background: #181c27 !important; font-family: 'Segoe UI', sans-serif !important; color: #f3f6fb !important; }
+.top-banner {
+    width: 100vw;
+    margin-left: -3.5vw;
+    background: linear-gradient(90deg, #4F8BF9 70%, #2D5AAB 100%);
+    padding: 1.3rem 0 0.9rem 2.4rem;
+    color: #fff;
+    box-shadow: 0 2px 12px #0001;
+    border-radius: 0 0 1.15rem 1.15rem;
+    margin-bottom: 2.1em;
+}
+.top-banner h1 { font-size: 2.2em; font-weight: 800; margin: 0 0 0.3em 0; color: #fff; }
+.top-banner .desc { font-weight: 430; font-size: 1.09em; color: #dbe2f7; }
 .card {
-  background: #232a3b !important;
-  border-radius: 18px;
-  box-shadow: 0 6px 24px rgba(50,60,75,0.28);
-  padding: 2rem 2.4rem 2rem 2rem;
-  margin-bottom: 2rem;
-  border: none;
+    background: #232a3b !important;
+    border-radius: 18px;
+    box-shadow: 0 6px 24px rgba(50,60,75,0.12);
+    padding: 2rem 2.1rem 1.55rem 2rem;
+    margin-bottom: 2.2rem;
 }
-.heading-icon {
-  font-size: 1.5em;
-  margin-right:0.37em;
-  vertical-align: -16%;
+.stTabs [data-baseweb='tab-list'] { background: none !important; }
+.stTabs [data-baseweb='tab'] { font-size: 1.14em; font-weight: 700; color: #a8c7ff !important; background: none;}
+.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; border-bottom:3px solid #32449b; }
+.stButton > button {
+    background: linear-gradient(90deg,#32449b,#485cdd);
+    color: #fff !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    padding: 0.65em 2.2em !important;
+    font-size: 1.1em !important;
+    margin: 0.18em 0.8em 0.18em 0;
 }
-.label-icon { font-size:1.1em; vertical-align:-6%; margin-right:0.3em;}
+.stButton > button:hover {
+    background: linear-gradient(90deg,#4658af,#6270f7) !important;
+    color: #e7eaff !important;
+}
 .stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
-  background: #22283a !important;
-  border-radius: 8px !important;
-  color: #f3f6fb !important;
-  border: 2px solid #32449b !important;
-  font-size: 1.13em !important;
-  font-weight: 500 !important;
+    background: #22283a !important;
+    border-radius: 8px !important;
+    color: #f3f6fb !important;
+    border: 2px solid #32449b !important;
+    font-size: 1.13em !important;
+    font-weight: 500 !important;
 }
 .stTextInput > div>input:focus, .stTextArea textarea:focus, .stSelectbox>div>div:focus {
-  border-color: #7e9dde !important;
-  box-shadow: 0 0 8px #395fa7 !important;
+    border-color: #7e9dde !important;
+    box-shadow: 0 0 8px #395fa7 !important;
+    outline: none !important;
 }
-.stButton>button {
-  background: linear-gradient(90deg,#32449b,#485cdd);
-  color: #fff !important;
-  font-weight: 700 !important;
-  border-radius: 10px !important;
-  padding: 0.68em 1.8em !important;
-  transition: all 0.18s;
-  margin-right: 0.85em;
-}
-.stButton>button:hover {
-  background: linear-gradient(90deg,#4658af,#6270f7) !important;
-  color: #e7eaff !important;
-}
-.stTabs [data-baseweb="tab-list"] { background: none !important; }
-.stTabs [data-baseweb="tab"] { font-size: 1.19em; font-weight: 800; color: #c4cfff !important; background: none;}
-.stTabs [data-baseweb="tab"][aria-selected="true"] { color:#fff !important; border-bottom:3px solid #32449b; }
-.stDataFrame > div > div { border-radius: 12px !important; box-shadow:0 0 12px #151d31;}
-.st-expander { background: #232a3b !important; border-radius: 14px !important;}
-/* Sidebar refinement */
-[data-testid="stSidebar"] { background: #181c27 !important; border-right: 1px solid #242a3c !important;}
+.stDataFrame > div > div { border-radius: 12px !important; box-shadow:0 0 14px #171d2e;}
+.st-expander { background: #222945 !important; border-radius: 14px !important; color: #c3cff8;}
+/* Sidebar */
+[data-testid="stSidebar"] { background: #181c27 !important;}
+.sb-section { margin-bottom: 1.3em; }
+.sb-hdr { color: #8ebafa !important; font-weight: bold; font-size: 1.04em; margin-bottom:0.18em;}
+.sb-list { padding-left:1.15em; margin-top:0.13em; margin-bottom:0.57em;}
+.sb-list li { color: #e8eaff; font-size: 1em; margin-bottom:0.15em; line-height: 1.5;}
+hr.sb-hr { border: none; border-top: 1px solid #23305a; margin: 0.82em 0; }
 </style>
 """, unsafe_allow_html=True)
+
+# --- Top Banner outside all cards ---
+st.markdown(
+    """
+    <div class='top-banner'>
+        <h1>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
+        <div class='desc'>AI-powered sentiment & aspect mining for feedback across industries</div>
+    </div>
+    """, unsafe_allow_html=True
+)
 
 @st.cache_resource
 def load_zero_shot():
@@ -94,39 +106,29 @@ SAMPLE_COMMENTS = [
 ]
 
 def render_grouped_aspects():
-    html = "<div class='card'><h3><span class='heading-icon'>💡</span> Suggested Aspects by Use Case</h3><div style='margin-top:0.5em;margin-bottom:0.5em;'>"
+    st.sidebar.markdown("<div class='sb-section'><span class='sb-hdr'>Suggested Aspects</span></div>", unsafe_allow_html=True)
     for group, aspects in GROUPED_ASPECTS.items():
-        html += f"<b style='color:#b9bcff'>{group}</b><br>"
-        html += "<span style='color:#dbe2f7;font-size:1.04em;'>"
-        html += ", ".join(aspects)
-        html += "</span><br>"
-    html += "</div></div>"
-    st.sidebar.markdown(html, unsafe_allow_html=True)
+        st.sidebar.markdown(
+            f"<div class='sb-section'><span class='sb-hdr'>{group}</span><ul class='sb-list'>" +
+            "".join(f"<li>{asp}</li>" for asp in aspects) +
+            "</ul></div><hr class='sb-hr'>", unsafe_allow_html=True
+        )
 
-# Welcome Card (top of main content)
+render_grouped_aspects()
+
+# --- Welcome Card
 st.markdown("""
-<div class="card" style="margin-top:2.3em;">
-    <h2><span class="heading-icon">👋</span>Welcome!</h2>
-    <div style="font-size:1.1em; color:#d5daf1">
-        Analyze customer feedback with our AI-powered classifier. Type or paste a review, select aspects of interest, and classify instantly.<br><br>
-        Supports single or batch review input, smart aspect analysis, sentiment detection, and 1-5 star mapping.<br>
-        <span style='color:#b9bcff;'>Tip: You can also paste a list of reviews for batch analysis with visual results!</span>
+<div class="card">
+    <h3 style="margin-bottom:0.7em;"><span style="font-size:1.2em;margin-right:0.3em;">👋</span>Welcome!</h3>
+    <div style="font-size:1.08em; color:#d5daf1">
+        Fast, AI-powered feedback analysis. Enter a review (single or batch), select aspects, and classify below.<br>
+        <span style='color:#b9bcff;'>Tip: Paste a review list for batch analysis with live charts.</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Grouped suggested aspects in sidebar
-render_grouped_aspects()
-
-st.markdown("""
-<div class="card">
-    <h2><span class="heading-icon">📝</span> Plan Your Analysis</h2>
-""", unsafe_allow_html=True)
-
-tab1, tab2 = st.tabs([
-    "📝 Single Review",
-    "📂 Batch CSV/Manual"
-])
+st.markdown("""<div class="card">""", unsafe_allow_html=True)
+tab1, tab2 = st.tabs(["📝 Single Review", "📂 Batch CSV/Manual"])
 
 def sentiment_to_stars(sentiment, score):
     if sentiment == "positive":
@@ -271,7 +273,7 @@ with tab2:
                     file_name="classification_results.csv",
                     mime="text/csv"
                 )
-
+st.markdown("</div>", unsafe_allow_html=True)
 st.markdown(
     "<hr><div style='color:#8aa2ff;font-size:1em;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</div>",
     unsafe_allow_html=True
