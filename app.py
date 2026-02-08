@@ -77,7 +77,11 @@ st.markdown("""
 @st.cache_resource
 def load_zero_shot():
     return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-classifier = load_zero_shot()
+
+def get_classifier():
+    if 'classifier' not in st.session_state:
+        st.session_state['classifier'] = load_zero_shot()
+    return st.session_state['classifier']
 GROUPED_ASPECTS = {
     "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
     "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
@@ -96,20 +100,52 @@ SAMPLE_COMMENTS = [
     "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
 ]
 def sentiment_to_stars(sentiment, score):
+    # Map sentiment labels + confidence to a 1-5 star rating
     if sentiment == "positive":
-        if score > 0.85: return 5
-        elif score > 0.7: return 4
-        else: return 4
+        if score >= 0.9:
+            return 5
+        elif score >= 0.75:
+            return 4
+        elif score >= 0.6:
+            return 3
+        else:
+            return 3
     elif sentiment == "neutral":
         return 3
-    else:
-        if score > 0.85: return 1
-        elif score > 0.7: return 2
-        else: return 2
+    else:  # negative
+        if score >= 0.85:
+            return 1
+        elif score >= 0.6:
+            return 2
+        else:
+            return 2
 def set_sample():
     st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
 def clear_text():
     st.session_state["review_text"] = ""
+
+# UI helpers for aspects
+def _all_aspects():
+    out = []
+    for v in GROUPED_ASPECTS.values():
+        out.extend(v)
+    # preserve order, unique
+    seen = set()
+    uniq = []
+    for a in out:
+        if a not in seen:
+            seen.add(a)
+            uniq.append(a)
+    return uniq
+
+def append_aspect(key, aspect):
+    cur = st.session_state.get(key, []) or []
+    if aspect not in cur:
+        st.session_state[key] = cur + [aspect]
+
+def append_to_both(aspect):
+    append_aspect('aspects_select', aspect)
+    append_aspect('batch_aspects_select', aspect)
 
 tab1, tab2, tab3 = st.tabs(["💬 Single Review", "📊 Batch Reviews", "❓ About & Help"])
 
@@ -117,48 +153,77 @@ tab1, tab2, tab3 = st.tabs(["💬 Single Review", "📊 Batch Reviews", "❓ Abo
 with tab1:
     if "review_text" not in st.session_state:
         st.session_state["review_text"] = ""
+    # ensure aspect multiselect state exists
+    if 'aspects_select' not in st.session_state:
+        st.session_state['aspects_select'] = []
+    if 'industry_select' not in st.session_state:
+        st.session_state['industry_select'] = ''
     st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;display:block;margin-bottom:0.09em;">💬 Enter a review</span>', unsafe_allow_html=True)
     text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
     st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
     st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
     st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Aspects/Categories (comma-separated)</span>', unsafe_allow_html=True)
-    aspects = st.text_input("", value="", key="aspects_text", label_visibility="collapsed")
+    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
+    col_ind, col_as = st.columns([1,2])
+    with col_ind:
+        industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
+        st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed', on_change=lambda: None)
+        # handle industry selection (on rerun)
+        if st.session_state.get('industry_select') and st.session_state.get('industry_select') != "-- Select industry --":
+            sel = st.session_state.get('industry_select')
+            if sel in GROUPED_ASPECTS:
+                st.session_state['aspects_select'] = GROUPED_ASPECTS[sel]
+                # optionally prefill sample
+                st.session_state['review_text'] = random.choice(SAMPLE_COMMENTS)
+    with col_as:
+        st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
     st.markdown('<div style="display:flex;justify-content:center;margin-top:0.25em;margin-bottom:0.41em;">', unsafe_allow_html=True)
     if st.button("🚦 Classify Now", key="classify_single_btn2"):
         if not text.strip():
             st.error("Please enter a review.")
-        elif not aspects.strip():
-            st.error("Please enter at least one aspect.")
+        elif not st.session_state.get('aspects_select'):
+            st.error("Please select at least one aspect.")
         else:
             with st.spinner("🔄 Classifying… Please wait."):
-                aspect_list = [a.strip() for a in aspects.split(",") if a.strip()]
-                aspect_result = classifier(text, candidate_labels=aspect_list, multi_label=True)
-                sentiment_result = classifier(text, candidate_labels=SENTIMENT_LABELS)
+                aspect_list = st.session_state.get('aspects_select', [])
+                # safe, batched inference (single-item lists to keep return shapes consistent)
+                try:
+                    cls = get_classifier()
+                    sentiment_result = cls([text], candidate_labels=SENTIMENT_LABELS)
+                    if isinstance(sentiment_result, list):
+                        sentiment_result = sentiment_result[0]
+                    aspect_result = cls([text], candidate_labels=aspect_list, multi_label=True)
+                    if isinstance(aspect_result, list):
+                        aspect_result = aspect_result[0]
+                except Exception as e:
+                    st.error(f"Model inference failed: {e}")
+                    sentiment_result = None
+                    aspect_result = None
                 sentiment_emoji = {"positive": "😊", "neutral": "😐", "negative": "😞"}
-                stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
-                st.markdown(
-                    f'''<div class="output-card">
-                      <span class="senti-label">Sentiment:</span> <span class="senti-positive">{sentiment_emoji.get(sentiment_result['labels'][0],'')}</span> <b class="senti-positive">{sentiment_result['labels'][0].capitalize()}</b>
-                      <span class="senti-score">(Score: {sentiment_result['scores'][0]:.2f})</span>
-                      <div class="output-stars">Star Rating: {'⭐'*stars} ({stars}/5)</div>
-                    </div>''', unsafe_allow_html=True
-                )
-                st.markdown('<div class="aspect-label-list" style="font-size:1.11em;font-weight:700;color:#a7c3fe;margin:0.2em 0 0.11em 1px;">Aspect Relevance Scores:</div>', unsafe_allow_html=True)
-                df = pd.DataFrame({
-                    "Aspect": aspect_result["labels"],
-                    "Score": aspect_result["scores"]
-                })
-                for idx, row in df.iterrows():
-                    colorclass = "aspect-dot" if row["Score"] > 0.6 else "aspect-dot aspect-dot-lo"
+                if sentiment_result is not None:
+                    stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
                     st.markdown(
-                        f'''<div class="aspect-row">
-                            <span class="{colorclass}"></span>
-                            <span style="font-weight:700;color:#7ecefa;">{row['Aspect']}</span>
-                            <span class="aspect-score">: {row["Score"]:.2f}</span>
+                        f'''<div class="output-card">
+                          <span class="senti-label">Sentiment:</span> <span class="senti-positive">{sentiment_emoji.get(sentiment_result['labels'][0],'')}</span> <b class="senti-positive">{sentiment_result['labels'][0].capitalize()}</b>
+                          <span class="senti-score">(Score: {sentiment_result['scores'][0]:.2f})</span>
+                          <div class="output-stars">Star Rating: {'⭐'*stars} ({stars}/5)</div>
                         </div>''', unsafe_allow_html=True
                     )
+                    st.markdown('<div class="aspect-label-list" style="font-size:1.11em;font-weight:700;color:#a7c3fe;margin:0.2em 0 0.11em 1px;">Aspect Relevance Scores:</div>', unsafe_allow_html=True)
+                    df = pd.DataFrame({
+                        "Aspect": aspect_result["labels"],
+                        "Score": aspect_result["scores"]
+                    })
+                    for idx, row in df.iterrows():
+                        colorclass = "aspect-dot" if row["Score"] > 0.6 else "aspect-dot aspect-dot-lo"
+                        st.markdown(
+                            f'''<div class="aspect-row">
+                                <span class="{colorclass}"></span>
+                                <span style="font-weight:700;color:#7ecefa;">{row['Aspect']}</span>
+                                <span class="aspect-score">: {row["Score"]:.2f}</span>
+                            </div>''', unsafe_allow_html=True
+                        )
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Batch Reviews Tab (unchanged logic, as prior robust version) ---
@@ -249,6 +314,8 @@ st.markdown(
 with tab2:
     if 'uploaded_filename' not in st.session_state:
         st.session_state['uploaded_filename'] = ''
+    if 'batch_aspects_select' not in st.session_state:
+        st.session_state['batch_aspects_select'] = []
     st.markdown(
         "<div style='background: #22304a; border-radius: 11px; padding:0.73em 1.22em 0.85em 1.22em; color:#e3f1fe; font-size:1.07em;margin-bottom:1.03em;'>"
         "<b>Instructions:</b> Upload a UTF-8 CSV file with a column <span style='background:#222c41;color:#53ffb2;border-radius:5px;padding:1.5px 5px;font-size:1em;'>review</span> or paste reviews (one per line) below.<br>"
@@ -266,7 +333,7 @@ with tab2:
             manual_text = st.text_area("", height=120, key="batch_manual_text", label_visibility="collapsed")
 
     st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.01em;">🔎 Aspects/Categories for batch</span>', unsafe_allow_html=True)
-    aspects = st.text_input("", value="", key="batch_aspects_text", label_visibility="collapsed")
+    st.multiselect("Choose aspects for batch (searchable)", options=_all_aspects(), default=st.session_state.get('batch_aspects_select', []), key='batch_aspects_select', label_visibility='collapsed')
     reviews = []
     uploaded_filename = ''
     if uploaded is not None:
@@ -299,25 +366,40 @@ with tab2:
 
     st.markdown('<div style="display:flex;justify-content:center;margin-top:0.6em;margin-bottom:0.6em;">', unsafe_allow_html=True)
     if st.button("🚦 Classify Batch", key="classify_batch_btn2"):
-        if not aspects.strip():
+        if not st.session_state.get('batch_aspects_select'):
             st.error("Please enter at least one aspect.")
         elif not reviews:
             st.error("Please upload CSV or enter reviews.")
         else:
             with st.spinner("🔄 Classifying batch reviews… Please wait."):
                 results = []
-                aspect_list = [a.strip() for a in aspects.split(",") if a.strip()]
-                for r in reviews:
-                    sentiment_result = classifier(r, candidate_labels=SENTIMENT_LABELS)
-                    aspect_result = classifier(r, candidate_labels=aspect_list, multi_label=True)
-                    stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
+                aspect_list = st.session_state.get('batch_aspects_select', [])
+                try:
+                    cls = get_classifier()
+                    sentiment_batch = cls(reviews, candidate_labels=SENTIMENT_LABELS, batch_size=32)
+                    aspects_batch = cls(reviews, candidate_labels=aspect_list, multi_label=True, batch_size=32)
+                except Exception as e:
+                    st.error(f"Model inference failed during batch processing: {e}")
+                    sentiment_batch = []
+                    aspects_batch = []
+
+                for i, r in enumerate(reviews):
+                    if i < len(sentiment_batch):
+                        sres = sentiment_batch[i]
+                    else:
+                        sres = {"labels": ["neutral"], "scores": [0.0]}
+                    if i < len(aspects_batch):
+                        ares = aspects_batch[i]
+                    else:
+                        ares = {"labels": [""], "scores": [0.0]}
+                    stars = sentiment_to_stars(sres['labels'][0], sres['scores'][0])
                     results.append({
                         "review": r,
-                        "sentiment": sentiment_result["labels"][0],
-                        "sentiment_score": sentiment_result["scores"][0],
+                        "sentiment": sres["labels"][0],
+                        "sentiment_score": sres["scores"][0],
                         "star_rating": stars,
-                        "top_aspect": aspect_result["labels"][0],
-                        "aspect_score": aspect_result["scores"][0]
+                        "top_aspect": ares["labels"][0],
+                        "aspect_score": ares["scores"][0]
                     })
             st.success("✅ Batch classification completed!")
             results_df = pd.DataFrame(results)
@@ -358,3 +440,16 @@ with tab2:
                 mime="text/csv"
             )
     st.markdown('</div>', unsafe_allow_html=True)
+
+# Re-enter About tab to render interactive suggested-aspect buttons
+with tab3:
+    st.markdown('**Suggested Aspects (click to add to inputs)**')
+    for group, chips in GROUPED_ASPECTS.items():
+        st.markdown(f"**{group}**")
+        # render chips in rows of up to 6
+        for i in range(0, len(chips), 6):
+            row = chips[i:i+6]
+            cols = st.columns(len(row))
+            for j, chip in enumerate(row):
+                safe_key = f"chip_{group}_{chip}".replace(' ', '_').replace('/', '_')
+                cols[j].button(chip, key=safe_key, on_click=append_to_both, args=(chip,))
