@@ -111,6 +111,12 @@ def sentiment_to_stars(sentiment, score):
             return 2
         else:
             return 2
+def on_industry_select():
+    sel = st.session_state.get('industry_select')
+    if sel and sel != "-- Select industry --" and sel in GROUPED_ASPECTS:
+        st.session_state['aspects_select'] = GROUPED_ASPECTS[sel]
+        st.session_state['review_text'] = random.choice(SAMPLE_COMMENTS)
+
 def set_sample():
     st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
 def clear_text():
@@ -158,7 +164,7 @@ with tab1:
         col_ind, col_as = st.columns([1,2])
         with col_ind:
             industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
-            st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed')
+            st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed', on_change=on_industry_select)
         with col_as:
             st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
         submit = st.form_submit_button(label="🚦 Classify Now")
@@ -168,13 +174,6 @@ with tab1:
     st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
     st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # If industry was chosen in the form, populate aspects and optionally sample text
-    if st.session_state.get('industry_select') and st.session_state.get('industry_select') != "-- Select industry --":
-        sel = st.session_state.get('industry_select')
-        if sel in GROUPED_ASPECTS and (not st.session_state.get('aspects_select')):
-            st.session_state['aspects_select'] = GROUPED_ASPECTS[sel]
-            st.session_state['review_text'] = random.choice(SAMPLE_COMMENTS)
 
     if submit:
         # Run classification after form submit
