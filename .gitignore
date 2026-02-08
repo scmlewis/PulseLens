@@ -25,6 +25,7 @@ instance/
 
 # Streamlit
 .streamlit/
+!.streamlit/config.toml
 
 # Python packaging
 pip-wheel-metadata/
