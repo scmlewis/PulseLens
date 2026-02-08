@@ -260,7 +260,7 @@ with tab1:
         
         with col1:
             st.markdown("**🏭 Industry (Optional)**")
-            st.markdown("Auto-populate aspects when you select an industry", fontsize="0.85em")
+            st.markdown("<small>Auto-populate aspects when you select an industry</small>", unsafe_allow_html=True)
             industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
             st.selectbox(
                 "Choose an industry:",
@@ -272,7 +272,7 @@ with tab1:
         
         with col2:
             st.markdown("**✨ Quick Actions**")
-            st.markdown("Try a sample review or clear the field", fontsize="0.85em")
+            st.markdown("<small>Try a sample review or clear the field</small>", unsafe_allow_html=True)
             col_sample, col_clear = st.columns(2)
             with col_sample:
                 st.button("Load Sample", on_click=set_sample, key="gen_sample_btn", use_container_width=True)
@@ -282,7 +282,7 @@ with tab1:
         st.markdown("---")
         
         st.markdown("**📝 Review Text**")
-        st.markdown("Enter a customer review (at least 10 characters)", fontsize="0.85em")
+        st.markdown("<small>Enter a customer review (at least 10 characters)</small>", unsafe_allow_html=True)
         text = st.text_area(
             "Type or paste a review:",
             height=130,
@@ -292,7 +292,7 @@ with tab1:
         )
         
         st.markdown("**Aspects to Analyze**")
-        st.markdown("Select 1 or more aspects (or use industry presets above)", fontsize="0.85em")
+        st.markdown("<small>Select 1 or more aspects (or use industry presets above)</small>", unsafe_allow_html=True)
         st.multiselect(
             "Choose aspects:",
             options=get_all_aspects(),
@@ -432,7 +432,7 @@ with tab2:
         
         st.markdown("---")
         st.markdown("**Select Aspects to Analyze**")
-        st.markdown("Choose at least one aspect", fontsize="0.85em")
+        st.markdown("<small>Choose at least one aspect</small>", unsafe_allow_html=True)
         st.multiselect(
             "Aspects:",
             options=get_all_aspects(),
