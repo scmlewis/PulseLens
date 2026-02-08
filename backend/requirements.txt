@@ -1,0 +1,7 @@
+Flask==2.3.3
+Flask-CORS==4.0.0
+torch>=1.13.1
+transformers==4.34.0
+pandas>=2.0.0
+plotly>=5.15.0
+python-dateutil==2.8.2

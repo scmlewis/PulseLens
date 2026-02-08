@@ -1,9 +1,31 @@
+"""
+PulseLens - Customer Feedback Analyzer
+Lightweight Streamlit app - single deploy, no backend required.
+"""
 import os
 import streamlit as st
 import pandas as pd
 import random
 from transformers import pipeline
 import plotly.express as px
+        "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
+        "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
+        "👗 Fashion": ["fit", "material", "style", "comfort", "design", "price"],
+        "🛒 Supermarket": ["freshness", "variety", "checkout", "customer service", "packaging", "speed"],
+        "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
+        "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
+    }
+    SAMPLE_COMMENTS = [
+        "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
+        "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
+        "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
+        "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
+        "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
+        "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
+    ]
+
+# Configuration
+BACKEND_URL = "http://127.0.0.1:5000"
 
 st.set_page_config(
     page_title="PulseLens — Customer Pulse Analyzer",
@@ -30,6 +52,67 @@ st.markdown("""
     <div class="desc">AI-powered customer pulse and aspect insights.</div>
 </div>
 """, unsafe_allow_html=True)
+
+# Model and data
+@st.cache_resource
+def load_zero_shot():
+    return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
+def get_classifier():
+    if 'classifier' not in st.session_state:
+        st.session_state['classifier'] = load_zero_shot()
+    return st.session_state['classifier']
+
+GROUPED_ASPECTS = {
+    "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
+    "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
+    "👗 Fashion": ["fit", "material", "style", "comfort", "design", "price"],
+    "🛒 Supermarket": ["freshness", "variety", "checkout", "customer service", "packaging", "speed"],
+    "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
+    "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
+}
+SENTIMENT_LABELS = ["positive", "neutral", "negative"]
+SAMPLE_COMMENTS = [
+    "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
+    "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
+    "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
+    "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
+    "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
+    "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
+]
+
+def classify_batch(reviews, candidate_labels, classifier_getter, chunk_size=32, progress=None):
+    """Classify reviews in chunks, returning a list of outputs per review.
+    `classifier_getter` should be a callable returning the HF pipeline.
+    Progress, if provided, must implement `.update(float)` where float is between 0.0 and 1.0.
+    """
+    if not reviews:
+        return []
+    cls = classifier_getter()
+    results = []
+    total = len(reviews)
+    for i in range(0, total, chunk_size):
+        chunk = reviews[i : i + chunk_size]
+        try:
+            outs = cls(chunk, candidate_labels=candidate_labels, multi_label=False)
+        except Exception:
+            # Fallback: classify one-by-one
+            outs = []
+            for item in chunk:
+                try:
+                    outs.append(cls(item, candidate_labels=candidate_labels, multi_label=False))
+                except Exception:
+                    outs.append({"labels": [], "scores": []})
+        # Normalize to list of per-item outputs
+        if isinstance(outs, dict):
+            outs = [outs]
+        results.extend(outs)
+        if progress is not None:
+            try:
+                progress.update(min(1.0, (i + len(chunk)) / total))
+            except Exception:
+                pass
+    return results
 
 # Model and data
 @st.cache_resource
