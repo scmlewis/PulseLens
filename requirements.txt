@@ -1,5 +1,8 @@
-streamlit==1.25.0
+﻿streamlit==1.25.0
 transformers==4.34.0
 torch>=1.13.1
 pandas>=2.0.0
 plotly>=5.15.0
+# Explicit Pillow pin to avoid building source sdist on newer Python (Streamlit dependency)
+# Use a Pillow wheel compatible with modern Python runtimes (e.g. Python 3.13)
+pillow>=9.6.0,<10
