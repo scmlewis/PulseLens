@@ -157,16 +157,16 @@ with tab1:
     if 'industry_select' not in st.session_state:
         st.session_state['industry_select'] = ''
     st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;display:block;margin-bottom:0.09em;">💬 Enter a review</span>', unsafe_allow_html=True)
+    
+    # Industry selectbox outside form (callbacks not allowed inside forms in Streamlit 1.37+)
+    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
+    industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
+    st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed', on_change=on_industry_select)
+    
     # Wrap single-review inputs in a form to allow batching of inputs before inference
     with st.form(key='single_review_form'):
         text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
-        st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
-        col_ind, col_as = st.columns([1,2])
-        with col_ind:
-            industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
-            st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed', on_change=on_industry_select)
-        with col_as:
-            st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
+        st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
         submit = st.form_submit_button(label="🚦 Classify Now")
     
     # Buttons outside the form (Streamlit 1.37+ requires callbacks to be outside forms)
