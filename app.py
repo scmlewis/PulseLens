@@ -5,71 +5,28 @@ from transformers import pipeline
 import plotly.express as px
 
 st.set_page_config(
-    page_title="Customer Feedback Sentiment & Aspect Classifier",
-    page_icon="🧠",
+    page_title="PulseLens — Customer Pulse Analyzer",
+    page_icon="📡",
     layout="wide"
 )
 
 # Header and style
-st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-<style>
-.stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; color: #f3f6fb !important;}
-.main-container { width: 100vw !important; max-width: none;}
-.header-banner { background: linear-gradient(90deg,#4F8BF9 65%, #2D5AAB 100%);
-    border-radius:1.15rem; padding:1.17em 2.2em 1.13em 2.2em; box-shadow:0 2px 16px #23274629;
-    text-align:center; border-bottom: 4px solid #43a2ff; margin-bottom: 2em;}
-.header-banner h1 { font-size: 2.07em; font-weight: 900; margin: 0 0 0.14em 0; color: #fff; line-height:1.1; letter-spacing:-1px;}
-.header-banner .desc { font-weight: 500; font-size: 1.17em; color: #e2ebff; margin-top:0.18em; }
-.stTabs [data-baseweb='tab-list'] { background: none !important; justify-content:center;}
-.stTabs [data-baseweb='tab'] { border-radius: 22px 22px 0 0 !important; margin-right: 1.2em !important;
-    font-size: 1.18em !important; font-weight: 800 !important; color: #adc8ff !important;
-    padding: 0.89em 2.33em 0.85em 2.33em !important; background: #232a3b !important; box-shadow: 0 2.5px 16px #22283a35;
-    border: 2.1px solid #3F59B844;}
-.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; background: linear-gradient(90deg, #527afe, #3553c3 90%);
-    border-bottom: 3.1px solid #8dc7fc !important; box-shadow: 0 2px 12px #325aee18;}
-.stButton > button { background: linear-gradient(90deg,#32449b,#485cdd);
-    color: #fff !important; font-weight: 700 !important; border-radius: 8px !important;
-    padding: 0.7em 2.3em; font-size: 1.11em !important;border:none;box-shadow:0 1px 10px #18113319;
-    margin:0 .24em 0 .24em; display:inline-block; transition: all 0.22s;}
-.stButton > button:hover, .stButton>button:focus { background: linear-gradient(90deg,#3970e8,#61a3fd) !important; color: #fff !important;}
-.stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
-    background: #22283a !important; border-radius: 8px !important; color: #e3f2ff !important;
-    border: 2px solid #3a4ece !important; font-size: 1.13em !important; font-weight: 500 !important;}
-.stTextInput, .stTextArea, .stSelectbox { margin-top: 0em !important; margin-bottom: 0.11em !important; }
-.stTextInput label, .stTextArea label, .stSelectbox label { margin-bottom:0.08em !important; }
-.card { background: #232a3b; border-radius: 13px; box-shadow: 0 5px 20px #1c223510;
-    padding: 1.15rem 2.1rem 1.1rem 2.1rem; margin-bottom: 0.6em;}
-.stDataFrame >div>div { border-radius: 11px !important; box-shadow:0 0 14px #151d2e;}
-.output-card { background: #232a3b; border-radius:11px; box-shadow: 0 2px 12px #191c2e35; padding: 1.08em 2em; margin-bottom:0.18em; color: #f3f6fb; font-size:1.15em; letter-spacing:0.006em;}
-.output-stars { margin:0.12em 0 0.19em 0; font-size:1.28em;}
-.senti-positive { color:#90ffb8;font-weight:700;}
-.senti-label { font-weight:900; font-size:1.13em; margin-right:0.24em;}
-.senti-score { color:#b5b9fc; font-size:0.98em; margin-left:0.12em;}
-.aspect-row { display:flex;align-items:center;margin:0.09em 0;}
-.aspect-dot { width:15px;height:15px;display:inline-block;border-radius:24px;
-    background:linear-gradient(145deg,#5ae0fb,#1e61e6 80%); margin-right: 0.24em;}
-.aspect-dot-lo {background:linear-gradient(145deg,#adc6ff,#434766 80%);}
-.aspect-score {font-size:1.03em;font-weight:500;margin-left:0.27em; color:#77ebfa;}
-.aspect-label-list {margin:0.37em 0 0.12em 1px;}
-/* Aspects grid and card styles - now in tab, not sidebar */
-.suggested-aspects-title { font-size: 1.28em; color: #86c6f6; font-weight: 900; margin-bottom:0.4em; }
-.suggested-aspect-grid { display: flex; flex-wrap: wrap; gap:1.7em 1em; padding:0 0.3em; }
-.suggested-aspect-group { background: #232a3b; border-radius:10px; margin-bottom:0.09em;
-    margin-top:0.13em; padding: 0.9em 1.19em 0.75em 1.1em; box-shadow: 0 0.5px 6px #1d223927;}
-.suggested-group-title { font-size: 1.12em; color:#79b3f9; font-weight:900; margin-bottom:0.36em; }
-.suggested-chips-row { display: flex; flex-wrap: wrap; gap:0.28em 0.49em; margin-top:0.01em;}
-.suggested-chip { display:inline-block;background:#293053;color:#e7eefe;border-radius:7px;
-    padding: 0.22em 1em;margin:0 0.06em 0.14em 0;font-size:1em;font-weight:600; letter-spacing:0.01em;}
-</style>
-""", unsafe_allow_html=True)
+try:
+    with open(os.path.join(os.path.dirname(__file__), "static", "styles.css"), "r", encoding="utf-8") as fh:
+        _css = fh.read()
+    st.markdown(f"<style>{_css}</style>", unsafe_allow_html=True)
+    st.markdown('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">', unsafe_allow_html=True)
+except Exception:
+    # Fallback to inline minimal styling if file missing
+    st.markdown('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">', unsafe_allow_html=True)
+    st.markdown('<style>.main-container{max-width:100vw}</style>', unsafe_allow_html=True)
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # HEADER
 st.markdown("""
 <div class="header-banner">
-    <h1>🧠 Customer Feedback Sentiment & Aspect Classifier</h1>
-    <div class="desc">Modern, AI-powered feedback analytics for all industries.</div>
+    <h1>📡 PulseLens — Customer Pulse Analyzer</h1>
+    <div class="desc">AI-powered customer pulse and aspect insights.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -82,6 +39,40 @@ def get_classifier():
     if 'classifier' not in st.session_state:
         st.session_state['classifier'] = load_zero_shot()
     return st.session_state['classifier']
+
+
+def classify_batch(reviews, candidate_labels, classifier_getter, chunk_size=32, progress=None):
+    """Classify reviews in chunks, returning a list of outputs per review.
+    `classifier_getter` should be a callable returning the HF pipeline.
+    Progress, if provided, must implement `.update(float)` where float is between 0.0 and 1.0.
+    """
+    if not reviews:
+        return []
+    cls = classifier_getter()
+    results = []
+    total = len(reviews)
+    for i in range(0, total, chunk_size):
+        chunk = reviews[i : i + chunk_size]
+        try:
+            outs = cls(chunk, candidate_labels=candidate_labels, multi_label=False)
+        except Exception:
+            # Fallback: classify one-by-one
+            outs = []
+            for item in chunk:
+                try:
+                    outs.append(cls(item, candidate_labels=candidate_labels, multi_label=False))
+                except Exception:
+                    outs.append({"labels": [], "scores": []})
+        # Normalize to list of per-item outputs
+        if isinstance(outs, dict):
+            outs = [outs]
+        results.extend(outs)
+        if progress is not None:
+            try:
+                progress.update(min(1.0, (i + len(chunk)) / total))
+            except Exception:
+                pass
+    return results
 GROUPED_ASPECTS = {
     "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
     "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
@@ -159,41 +150,44 @@ with tab1:
     if 'industry_select' not in st.session_state:
         st.session_state['industry_select'] = ''
     st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;display:block;margin-bottom:0.09em;">💬 Enter a review</span>', unsafe_allow_html=True)
-    text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
-    st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
-    st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
-    st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
-    col_ind, col_as = st.columns([1,2])
-    with col_ind:
-        industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
-        st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed', on_change=lambda: None)
-        # handle industry selection (on rerun)
-        if st.session_state.get('industry_select') and st.session_state.get('industry_select') != "-- Select industry --":
-            sel = st.session_state.get('industry_select')
-            if sel in GROUPED_ASPECTS:
-                st.session_state['aspects_select'] = GROUPED_ASPECTS[sel]
-                # optionally prefill sample
-                st.session_state['review_text'] = random.choice(SAMPLE_COMMENTS)
-    with col_as:
-        st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
-    st.markdown('<div style="display:flex;justify-content:center;margin-top:0.25em;margin-bottom:0.41em;">', unsafe_allow_html=True)
-    if st.button("🚦 Classify Now", key="classify_single_btn2"):
-        if not text.strip():
+    # Wrap single-review inputs in a form to allow batching of inputs before inference
+    with st.form(key='single_review_form'):
+        text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
+        st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
+        st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
+        st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
+        col_ind, col_as = st.columns([1,2])
+        with col_ind:
+            industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
+            st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed')
+        with col_as:
+            st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
+        submit = st.form_submit_button(label="🚦 Classify Now")
+
+    # If industry was chosen in the form, populate aspects and optionally sample text
+    if st.session_state.get('industry_select') and st.session_state.get('industry_select') != "-- Select industry --":
+        sel = st.session_state.get('industry_select')
+        if sel in GROUPED_ASPECTS and (not st.session_state.get('aspects_select')):
+            st.session_state['aspects_select'] = GROUPED_ASPECTS[sel]
+            st.session_state['review_text'] = random.choice(SAMPLE_COMMENTS)
+
+    if submit:
+        # Run classification after form submit
+        if not st.session_state.get('review_text', '').strip():
             st.error("Please enter a review.")
         elif not st.session_state.get('aspects_select'):
             st.error("Please select at least one aspect.")
         else:
             with st.spinner("🔄 Classifying… Please wait."):
                 aspect_list = st.session_state.get('aspects_select', [])
-                # safe, batched inference (single-item lists to keep return shapes consistent)
                 try:
                     cls = get_classifier()
-                    sentiment_result = cls([text], candidate_labels=SENTIMENT_LABELS)
+                    sentiment_result = cls([st.session_state.get('review_text')], candidate_labels=SENTIMENT_LABELS)
                     if isinstance(sentiment_result, list):
                         sentiment_result = sentiment_result[0]
-                    aspect_result = cls([text], candidate_labels=aspect_list, multi_label=True)
+                    aspect_result = cls([st.session_state.get('review_text')], candidate_labels=aspect_list, multi_label=True)
                     if isinstance(aspect_result, list):
                         aspect_result = aspect_result[0]
                 except Exception as e:
@@ -375,9 +369,19 @@ with tab2:
                 results = []
                 aspect_list = st.session_state.get('batch_aspects_select', [])
                 try:
-                    cls = get_classifier()
-                    sentiment_batch = cls(reviews, candidate_labels=SENTIMENT_LABELS, batch_size=32)
-                    aspects_batch = cls(reviews, candidate_labels=aspect_list, multi_label=True, batch_size=32)
+                    # chunked classification with visual progress
+                    p1 = st.progress(0.0)
+                    class _Prog:
+                        def __init__(self, bar):
+                            self.bar = bar
+                        def update(self, v):
+                            try:
+                                self.bar.progress(v)
+                            except Exception:
+                                pass
+                    sentiment_batch = classify_batch(reviews, SENTIMENT_LABELS, get_classifier, chunk_size=32, progress=_Prog(p1))
+                    p2 = st.progress(0.0)
+                    aspects_batch = classify_batch(reviews, aspect_list, get_classifier, chunk_size=16, progress=_Prog(p2))
                 except Exception as e:
                     st.error(f"Model inference failed during batch processing: {e}")
                     sentiment_batch = []

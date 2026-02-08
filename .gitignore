@@ -19,3 +19,51 @@ dist/
 secrets.toml
 instance/
 .pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/
+
+# Python packaging
+pip-wheel-metadata/
+
+# Local model artifacts and checkpoints
+models/
+*.ckpt
+*.pth
+*.pt
+
+# Dataset/uploads
+uploads/
+data/
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# IDE/editor
+.ropeproject/
+
+# macOS
+__MACOSX/
+Icon\r
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Coverage
+.coverage
+coverage.xml
+
+# CI
+.pytest_cache/
+
+# Hugging Face / caches
+# Note: user-level caches live in home dir; this covers repo-relative caches
+hf_cache/
+huggingface_cache/
+

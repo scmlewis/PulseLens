@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+.stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; color: #f3f6fb !important;}
+.main-container { width: 100vw !important; max-width: none;}
+.header-banner { background: linear-gradient(90deg,#4F8BF9 65%, #2D5AAB 100%);
+    border-radius:1.15rem; padding:1.17em 2.2em 1.13em 2.2em; box-shadow:0 2px 16px #23274629;
+    text-align:center; border-bottom: 4px solid #43a2ff; margin-bottom: 2em;}
+.header-banner h1 { font-size: 2.07em; font-weight: 900; margin: 0 0 0.14em 0; color: #fff; line-height:1.1; letter-spacing:-1px;}
+.header-banner .desc { font-weight: 500; font-size: 1.17em; color: #e2ebff; margin-top:0.18em; }
+.stTabs [data-baseweb='tab-list'] { background: none !important; justify-content:center;}
+.stTabs [data-baseweb='tab'] { border-radius: 22px 22px 0 0 !important; margin-right: 1.2em !important;
+    font-size: 1.18em !important; font-weight: 800 !important; color: #adc8ff !important;
+    padding: 0.89em 2.33em 0.85em 2.33em !important; background: #232a3b !important; box-shadow: 0 2.5px 16px #22283a35;
+    border: 2.1px solid #3F59B844;}
+.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; background: linear-gradient(90deg, #527afe, #3553c3 90%);
+    border-bottom: 3.1px solid #8dc7fc !important; box-shadow: 0 2px 12px #325aee18;}
+.stButton > button { background: linear-gradient(90deg,#32449b,#485cdd);
+    color: #fff !important; font-weight: 700 !important; border-radius: 8px !important;
+    padding: 0.7em 2.3em; font-size: 1.11em !important;border:none;box-shadow:0 1px 10px #18113319;
+    margin:0 .24em 0 .24em; display:inline-block; transition: all 0.22s;}
+.stButton > button:hover, .stButton>button:focus { background: linear-gradient(90deg,#3970e8,#61a3fd) !important; color: #fff !important;}
+.stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
+    background: #22283a !important; border-radius: 8px !important; color: #e3f2ff !important;
+    border: 2px solid #3a4ece !important; font-size: 1.13em !important; font-weight: 500 !important;}
+.stTextInput, .stTextArea, .stSelectbox { margin-top: 0em !important; margin-bottom: 0.11em !important; }
+.stTextInput label, .stTextArea label, .stSelectbox label { margin-bottom:0.08em !important; }
+.card { background: #232a3b; border-radius: 13px; box-shadow: 0 5px 20px #1c223510;
+    padding: 1.15rem 2.1rem 1.1rem 2.1rem; margin-bottom: 0.6em;}
+.stDataFrame >div>div { border-radius: 11px !important; box-shadow:0 0 14px #151d2e;}
+.output-card { background: #232a3b; border-radius:11px; box-shadow: 0 2px 12px #191c2e35; padding: 1.08em 2em; margin-bottom:0.18em; color: #f3f6fb; font-size:1.15em; letter-spacing:0.006em;}
+.output-stars { margin:0.12em 0 0.19em 0; font-size:1.28em;}
+.senti-positive { color:#90ffb8;font-weight:700;}
+.senti-label { font-weight:900; font-size:1.13em; margin-right:0.24em;}
+.senti-score { color:#b5b9fc; font-size:0.98em; margin-left:0.12em;}
+.aspect-row { display:flex;align-items:center;margin:0.09em 0;}
+.aspect-dot { width:15px;height:15px;display:inline-block;border-radius:24px;
+    background:linear-gradient(145deg,#5ae0fb,#1e61e6 80%); margin-right: 0.24em;}
+.aspect-dot-lo {background:linear-gradient(145deg,#adc6ff,#434766 80%);}
+.aspect-score {font-size:1.03em;font-weight:500;margin-left:0.27em; color:#77ebfa;}
+.aspect-label-list {margin:0.37em 0 0.12em 1px;}
+/* Aspects grid and card styles - now in tab, not sidebar */
+.suggested-aspects-title { font-size: 1.28em; color: #86c6f6; font-weight: 900; margin-bottom:0.4em; }
+.suggested-aspect-grid { display: flex; flex-wrap: wrap; gap:1.7em 1em; padding:0 0.3em; }
+.suggested-aspect-group { background: #232a3b; border-radius:10px; margin-bottom:0.09em;
+    margin-top:0.13em; padding: 0.9em 1.19em 0.75em 1.1em; box-shadow: 0 0.5px 6px #1d223927;}
+.suggested-group-title { font-size: 1.12em; color:#79b3f9; font-weight:900; margin-bottom:0.36em; }
+.suggested-chips-row { display: flex; flex-wrap: wrap; gap:0.28em 0.49em; margin-top:0.01em;}
+.suggested-chip { display:inline-block;background:#293053;color:#e7eefe;border-radius:7px;
+    padding: 0.22em 1em;margin:0 0.06em 0.14em 0;font-size:1em;font-weight:600; letter-spacing:0.01em;}
