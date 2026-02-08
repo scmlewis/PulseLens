@@ -1,11 +1,15 @@
 """
 PulseLens - Customer Feedback Analyzer
 Lightweight Streamlit app - single deploy, no backend required.
+Session-based results storage (works with Streamlit Cloud).
 """
 import os
 import streamlit as st
 import pandas as pd
 import random
+import json
+import uuid
+from datetime import datetime
 from transformers import pipeline
 import plotly.express as px
 
@@ -21,6 +25,61 @@ GROUPED_ASPECTS = {
 }
 
 SENTIMENT_LABELS = ["positive", "neutral", "negative"]
+
+# ==================== RESULTS STORAGE (Session-based for Streamlit Cloud) ====================
+
+def init_results_storage():
+    """Initialize results storage in session state."""
+    if 'results_list' not in st.session_state:
+        st.session_state['results_list'] = []
+
+def save_result(review_text: str, sentiment: str, confidence: float, stars: int, 
+                industry: str = "", aspects: dict = None, notes: str = "") -> str:
+    """
+    Save a single review analysis result to session state.
+    Returns the result ID.
+    """
+    result_id = str(uuid.uuid4())[:8]
+    result = {
+        "id": result_id,
+        "timestamp": datetime.now().isoformat(),
+        "review_text": review_text,
+        "sentiment": sentiment,
+        "confidence": float(confidence),
+        "stars": int(stars),
+        "industry": industry,
+        "aspects": aspects or {},
+        "favorited": False,
+        "notes": notes
+    }
+    
+    # Add to session state (stored in memory for this session)
+    st.session_state['results_list'].insert(0, result)  # Insert at beginning for newest first
+    
+    return result_id
+
+def load_all_results() -> list:
+    """Load all analysis results from session state."""
+    init_results_storage()
+    return st.session_state.get('results_list', [])
+
+def delete_result(result_id: str):
+    """Delete a result by ID from session state."""
+    init_results_storage()
+    st.session_state['results_list'] = [
+        r for r in st.session_state['results_list'] 
+        if r.get("id") != result_id
+    ]
+    return True
+
+def update_result_favorite(result_id: str, favorited: bool):
+    """Toggle favorite status of a result in session state."""
+    init_results_storage()
+    for result in st.session_state['results_list']:
+        if result.get("id") == result_id:
+            result["favorited"] = favorited
+            return True
+    return False
 
 SAMPLE_COMMENTS = [
     "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
@@ -39,6 +98,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize session state for results storage
+if 'results_list' not in st.session_state:
+    st.session_state['results_list'] = []
 
 # Header and style
 try:
@@ -178,7 +241,7 @@ def get_all_aspects():
     return uniq
 
 # Create tabs
-tab1, tab2, tab3 = st.tabs(["📝 Analyze a Review", "📊 Batch Reviews", "ℹ️ About & Help"])
+tab1, tab2, tab3 = st.tabs(["📝 Analyze One Review", "📊 Analyze Multiple Reviews", "📈 My Results"])
 
 # ===== TAB 1: SINGLE REVIEW ANALYSIS =====
 with tab1:
@@ -189,51 +252,66 @@ with tab1:
     if 'industry_select' not in st.session_state:
         st.session_state['industry_select'] = ''
     
-    st.markdown("### 💬 Enter a Review")
-    
-    st.markdown("**🏭 Industry Preset (optional):**")
-    industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
-    st.selectbox(
-        "Choose an industry to auto-fill aspects:",
-        industries,
-        key='industry_select',
-        label_visibility='collapsed',
-        on_change=on_industry_select
-    )
+    st.markdown("## 💬 Analyze a Single Review")
+    st.markdown("Paste or type a customer review below to get instant sentiment analysis and aspect scores.", unsafe_allow_html=True)
     
     with st.form(key='single_review_form'):
-        st.markdown("**Review Text:**")
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("**🏭 Industry (Optional)**")
+            st.markdown("Auto-populate aspects when you select an industry", fontsize="0.85em")
+            industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
+            st.selectbox(
+                "Choose an industry:",
+                industries,
+                key='industry_select',
+                label_visibility='collapsed',
+                on_change=on_industry_select
+            )
+        
+        with col2:
+            st.markdown("**✨ Quick Actions**")
+            st.markdown("Try a sample review or clear the field", fontsize="0.85em")
+            col_sample, col_clear = st.columns(2)
+            with col_sample:
+                st.button("Load Sample", on_click=set_sample, key="gen_sample_btn", use_container_width=True)
+            with col_clear:
+                st.button("Clear", on_click=clear_text, key="clear_btn", use_container_width=True)
+        
+        st.markdown("---")
+        
+        st.markdown("**📝 Review Text**")
+        st.markdown("Enter a customer review (at least 10 characters)", fontsize="0.85em")
         text = st.text_area(
-            "Enter review:",
-            height=120,
+            "Type or paste a review:",
+            height=130,
             key="review_text",
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            placeholder="e.g., 'The service was great, but the food was cold...'"
         )
         
-        st.markdown("**Select Aspects:**")
+        st.markdown("**Aspects to Analyze**")
+        st.markdown("Select 1 or more aspects (or use industry presets above)", fontsize="0.85em")
         st.multiselect(
-            "Choose aspects to analyze:",
+            "Choose aspects:",
             options=get_all_aspects(),
             default=st.session_state.get('aspects_select', []),
             key='aspects_select',
             label_visibility='collapsed'
         )
         
-        submit = st.form_submit_button(label="🔍 Classify Now", type="primary")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.button("✨ Load Sample", on_click=set_sample, key="gen_sample_btn")
-    with col2:
-        st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
+        submit = st.form_submit_button(label="🔍 Analyze Now", type="primary", use_container_width=True)
 
     if submit:
         if not st.session_state.get('review_text', '').strip():
-            st.error("Please enter a review.")
+            st.error("❌ Please enter a review.")
+        elif len(st.session_state.get('review_text', '').strip()) < 10:
+            st.error("❌ Review must be at least 10 characters long.")
         elif not st.session_state.get('aspects_select'):
-            st.error("Please select at least one aspect.")
+            st.error("❌ Please select at least one aspect.")
         else:
-            with st.spinner("Analyzing sentiment and aspects..."):
+            with st.spinner("🔄 Analyzing sentiment and aspects... This may take a moment."):
                 try:
                     cls = get_classifier()
                     
@@ -255,13 +333,24 @@ with tab1:
                     if isinstance(aspect_result, list):
                         aspect_result = aspect_result[0]
                     
-                    # Display results
-                    st.markdown("---")
-                    st.subheader("📊 Analysis Results")
-                    
                     sentiment = sentiment_result['labels'][0]
                     score = sentiment_result['scores'][0]
                     stars = sentiment_to_stars(sentiment, score)
+                    
+                    # Save result
+                    save_result(
+                        review_text=st.session_state.get('review_text'),
+                        sentiment=sentiment,
+                        confidence=score,
+                        stars=stars,
+                        industry=st.session_state.get('industry_select', ''),
+                        aspects=dict(zip(aspect_result['labels'], aspect_result['scores']))
+                    )
+                    
+                    # Display results
+                    st.markdown("---")
+                    st.success("✅ Analysis complete!")
+                    st.subheader("📊 Results")
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
@@ -288,69 +377,103 @@ with tab1:
                             y='Aspect',
                             orientation='h',
                             color='Score',
-                            color_continuous_scale='Blues'
+                            color_continuous_scale='Blues',
+                            title="Aspect Scores"
                         )
-                        fig.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0))
+                        fig.update_layout(height=300, margin=dict(l=0, r=0, t=30, b=0), showlegend=False)
+                        fig.update_xaxes(range=[0, 1])
                         st.plotly_chart(fig, use_container_width=True)
                     
                     with col_table:
                         display_df = aspect_df.copy()
-                        display_df['Score'] = display_df['Score'].apply(lambda x: f"{x:.1%}")
+                        display_df.columns = ['Aspect', 'Relevance Score']
+                        display_df['Relevance Score'] = display_df['Relevance Score'].apply(lambda x: f"{x:.1%}")
                         st.dataframe(display_df, use_container_width=True, hide_index=True)
                         
                 except Exception as e:
-                    st.error(f"Classification failed: {e}")
+                    st.error(f"❌ Analysis failed: {str(e)}")
+                    st.info("Try refreshing the page or checking your review text.")
 
 # ===== TAB 2: BATCH REVIEWS =====
 with tab2:
-    st.markdown("### 📊 Batch Review Analysis")
+    st.markdown("## 📊 Analyze Multiple Reviews")
+    st.markdown("Upload a CSV file or paste multiple reviews to analyze them in bulk.", unsafe_allow_html=True)
     
     if 'batch_aspects_select' not in st.session_state:
         st.session_state['batch_aspects_select'] = []
     
-    col1, col2 = st.columns([1, 1])
+    if 'use_paste' not in st.session_state:
+        st.session_state['use_paste'] = False
     
-    with col1:
-        st.markdown("**Upload CSV** (with `review` column):")
-        uploaded_file = st.file_uploader("Choose CSV", type="csv", key="batch_file")
-    
-    with col2:
-        st.markdown("**Or paste reviews** (one per line):")
-        pasted_text = st.text_area("Paste reviews:", height=120, label_visibility='collapsed', key="batch_manual")
-    
-    st.markdown("**Select Aspects:**")
-    st.multiselect(
-        "Aspects to analyze:",
-        options=get_all_aspects(),
-        default=st.session_state.get('batch_aspects_select', []),
-        key='batch_aspects_select',
-        label_visibility='collapsed'
+    input_method = st.radio(
+        "Choose input method:",
+        ["📤 Upload CSV", "📋 Paste Reviews"],
+        horizontal=True,
+        key="input_method"
     )
     
-    if st.button("⚙️ Classify Batch", type="primary", key="batch_btn"):
+    st.markdown("---")
+    
+    with st.form(key='batch_form'):
+        if input_method == "📤 Upload CSV":
+            st.markdown("**Requirements:** CSV file with a column named `review`")
+            uploaded_file = st.file_uploader("Choose CSV file", type="csv", key="batch_file")
+            batch_input = uploaded_file
+        else:
+            st.markdown("**Paste reviews** one per line (minimum 2 characters each)")
+            pasted_text = st.text_area(
+                "Paste reviews:",
+                height=150,
+                label_visibility='collapsed',
+                key="batch_manual",
+                placeholder="e.g., Great service!\nFood was cold.\nWill come back."
+            )
+            batch_input = pasted_text
+        
+        st.markdown("---")
+        st.markdown("**Select Aspects to Analyze**")
+        st.markdown("Choose at least one aspect", fontsize="0.85em")
+        st.multiselect(
+            "Aspects:",
+            options=get_all_aspects(),
+            default=st.session_state.get('batch_aspects_select', []),
+            key='batch_aspects_select',
+            label_visibility='collapsed'
+        )
+        
+        submit_batch = st.form_submit_button("⚙️ Analyze Batch", type="primary", use_container_width=True)
+    
+    if submit_batch:
         reviews_list = []
         
-        if uploaded_file:
-            try:
-                df = pd.read_csv(uploaded_file)
-                if 'review' not in df.columns:
-                    st.error("CSV must have a 'review' column")
-                else:
-                    reviews_list = df['review'].dropna().astype(str).tolist()
-            except Exception as e:
-                st.error(f"Error reading CSV: {e}")
-        elif pasted_text:
-            reviews_list = [r.strip() for r in pasted_text.split('\n') if r.strip()]
+        if input_method == "📤 Upload CSV":
+            if uploaded_file:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    if 'review' not in df.columns:
+                        st.error("❌ CSV must have a column named `review`. Found columns: " + ", ".join(df.columns))
+                    else:
+                        reviews_list = df['review'].dropna().astype(str).tolist()
+                except Exception as e:
+                    st.error(f"❌ Error reading CSV: {e}")
+            else:
+                st.error("❌ Please upload a CSV file.")
+        else:
+            if pasted_text and pasted_text.strip():
+                reviews_list = [r.strip() for r in pasted_text.split('\n') if r.strip() and len(r.strip()) >= 2]
+            else:
+                st.error("❌ Please paste at least one review.")
         
         if not reviews_list:
-            st.error("No reviews found. Please upload CSV or paste reviews.")
+            st.error("❌ No valid reviews found.")
         elif not st.session_state.get('batch_aspects_select'):
-            st.error("Please select at least one aspect.")
+            st.error("❌ Please select at least one aspect.")
         else:
-            with st.spinner("Classifying batch... This may take a minute."):
+            with st.spinner(f"🔄 Analyzing {len(reviews_list)} review(s)... This may take a moment."):
                 try:
                     # Sentiment analysis
-                    progress_bar = st.progress(0, text="Analyzing sentiment...")
+                    progress_text = "Analyzing sentiment..."
+                    progress_bar = st.progress(0, text=progress_text)
                     sentiment_results = classify_batch(
                         reviews_list,
                         SENTIMENT_LABELS,
@@ -360,7 +483,8 @@ with tab2:
                     progress_bar.empty()
                     
                     # Aspect analysis
-                    progress_bar = st.progress(0, text="Analyzing aspects...")
+                    progress_text = "Analyzing aspects..."
+                    progress_bar = st.progress(0, text=progress_text)
                     aspect_results = classify_batch(
                         reviews_list,
                         st.session_state['batch_aspects_select'],
@@ -380,7 +504,7 @@ with tab2:
                         stars = sentiment_to_stars(sentiment_label, sentiment_score) if sentiment_label else 0
                         
                         row = {
-                            'Review': review[:80] + '...' if len(review) > 80 else review,
+                            'Review': review[:75] + '...' if len(review) > 75 else review,
                             'Sentiment': sentiment_label or 'N/A',
                             'Confidence': f"{sentiment_score:.1%}",
                             'Stars': stars
@@ -394,9 +518,9 @@ with tab2:
                     
                     result_df = pd.DataFrame(batch_results)
                     
-                    st.success("✅ Batch complete!")
+                    st.success(f"✅ Analysis complete! Processed {len(batch_results)} reviews.")
                     st.markdown("---")
-                    st.subheader(f"📈 Results ({len(batch_results)} reviews)")
+                    st.subheader(f"📈 Results Summary")
                     
                     # Charts
                     col_pie, col_bar = st.columns([1, 1])
@@ -406,8 +530,14 @@ with tab2:
                         fig_pie = px.pie(
                             values=sentiment_counts.values,
                             names=sentiment_counts.index,
-                            title="Sentiment Distribution"
+                            title="Sentiment Distribution",
+                            color_discrete_map={
+                                'positive': '#22c55e',
+                                'neutral': '#f59e0b',
+                                'negative': '#ef4444'
+                            }
                         )
+                        fig_pie.update_layout(height=350, margin=dict(l=0, r=0, t=30, b=0))
                         st.plotly_chart(fig_pie, use_container_width=True)
                     
                     star_counts = result_df['Stars'].value_counts().sort_index()
@@ -417,76 +547,141 @@ with tab2:
                             y=star_counts.values,
                             labels={'x': 'Rating', 'y': 'Count'},
                             title="Star Rating Distribution",
-                            color=star_counts.index,
-                            color_continuous_scale='Blues'
+                            color_discrete_sequence=['#4F8BF9'] * len(star_counts)
                         )
+                        fig_bar.update_layout(height=350, margin=dict(l=0, r=0, t=30, b=0), showlegend=False)
                         st.plotly_chart(fig_bar, use_container_width=True)
                     
+                    st.markdown("---")
                     st.write("**Detailed Results:**")
                     st.dataframe(result_df, use_container_width=True, hide_index=True)
                     
                     # Download
                     csv_data = result_df.to_csv(index=False)
                     st.download_button(
-                        label="⬇️ Download as CSV",
+                        label="⬇️ Download Results as CSV",
                         data=csv_data,
-                        file_name="batch_results.csv",
-                        mime="text/csv"
+                        file_name=f"batch_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
                     )
                     
                 except Exception as e:
-                    st.error(f"Batch processing failed: {e}")
+                    st.error(f"❌ Batch processing failed: {str(e)}")
+                    st.info("Try with fewer reviews or check your input format.")
 
-# ===== TAB 3: ABOUT & HELP =====
+# ===== TAB 3: MY RESULTS =====
 with tab3:
-    st.markdown("### ℹ️ About PulseLens")
+    st.markdown("## 📈 My Results")
+    st.markdown("View, search, filter, and manage your analysis results during this session.", unsafe_allow_html=True)
     
-    st.markdown("""
-    **PulseLens** analyzes customer feedback using AI-powered zero-shot classification.
+    st.info("💡 **Note:** Results are stored in your current session only. They will be cleared when you refresh the page or the app restarts. To save results, export them as CSV.", icon="ℹ️")
     
-    #### How It Works
-    - Uses Hugging Face transformer model for sentiment & aspect classification
-    - **Sentiment:** Classifies reviews as positive/neutral/negative
-    - **Aspects:** Scores how strongly specific topics (e.g., "service", "price") appear in reviews
-    - **Star Rating:** Maps sentiment + confidence to 1-5 stars
+    all_results = load_all_results()
     
-    #### Features
-    ✅ Single review analysis with instant results  
-    ✅ Batch CSV processing (100+ reviews at once)  
-    ✅ Industry presets (Restaurant, Electronics, Fashion, etc.)  
-    ✅ Custom aspect selection  
-    ✅ Export results as CSV  
-    
-    #### Star Rating Logic
-    | Sentiment | Confidence | Rating |
-    |-----------|-----------|--------|
-    | Positive | ≥90% | ⭐⭐⭐⭐⭐ |
-    | Positive | 75-90% | ⭐⭐⭐⭐ |
-    | Positive | <75% | ⭐⭐⭐ |
-    | Neutral | Any | ⭐⭐⭐ |
-    | Negative | 60-85% | ⭐⭐ |
-    | Negative | ≥85% | ⭐ |
-    
-    #### Industry Aspect Presets
-    """)
-    
-    for industry, aspects in GROUPED_ASPECTS.items():
-        st.markdown(f"**{industry}**  {', '.join(aspects)}")
-    
-    st.markdown("""
-    #### FAQ
-    
-    **Q: How fast is analysis?**  
-    A: First run downloads model (~2 min), then <1s per review.
-    
-    **Q: Can I use custom aspects?**  
-    A: Yes, just type them. No retraining needed.
-    
-    **Q: Is data stored?**  
-    A: No, session-only. Results disappear when you close the page.
-    
-    **Q: CSV requirements?**  
-    A: Must have column named `review`.
-    """)
+    if not all_results:
+        st.info("📭 No results yet. Analyze some reviews in the tabs above to see them here!", icon="ℹ️")
+    else:
+        st.success(f"📊 Total results: {len(all_results)}")
+        
+        # Filters
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            search_text = st.text_input("🔍 Search reviews:", placeholder="Search by review text...")
+        
+        with col2:
+            filter_sentiment = st.multiselect(
+                "Sentiment:",
+                ["positive", "neutral", "negative"],
+                default=["positive", "neutral", "negative"],
+                key="filter_sentiment"
+            )
+        
+        with col3:
+            filter_stars = st.slider("Minimum stars:", 1, 5, 1, key="filter_stars")
+        
+        # Apply filters
+        filtered_results = []
+        for result in all_results:
+            # Search filter
+            if search_text and search_text.lower() not in result.get("review_text", "").lower():
+                continue
+            # Sentiment filter
+            if result.get("sentiment") not in filter_sentiment:
+                continue
+            # Stars filter
+            if result.get("stars", 0) < filter_stars:
+                continue
+            filtered_results.append(result)
+        
+        st.markdown("---")
+        
+        if not filtered_results:
+            st.warning("No results match your filters.")
+        else:
+            st.subheader(f"Showing {len(filtered_results)} result(s)")
+            
+            # Results display
+            for i, result in enumerate(filtered_results):
+                with st.expander(
+                    f"{'⭐' * result['stars']} {result['sentiment'].title()} - {result['review_text'][:60]}...",
+                    expanded=(i == 0)
+                ):
+                    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+                    
+                    with col1:
+                        st.write(f"**Review:** {result['review_text']}")
+                        st.write(f"**Timestamp:** {result['timestamp'][:10]} {result['timestamp'][11:16]}")
+                    
+                    with col2:
+                        st.write(f"**Sentiment:** {result['sentiment'].title()}")
+                        st.write(f"**Confidence:** {result['confidence']:.1%}")
+                        st.write(f"**Stars:** {'⭐' * result['stars']}")
+                    
+                    with col3:
+                        favorite_state = result.get("favorited", False)
+                        if st.button(f"{'❤️' if favorite_state else '🤍'}", key=f"fav_{result['id']}"):
+                            update_result_favorite(result['id'], not favorite_state)
+                            st.rerun()
+                    
+                    with col4:
+                        if st.button("🗑️", key=f"del_{result['id']}"):
+                            delete_result(result['id'])
+                            st.rerun()
+                    
+                    # Aspects
+                    if result.get('aspects'):
+                        st.write("**Aspects:**")
+                        aspects_df = pd.DataFrame({
+                            'Aspect': list(result['aspects'].keys()),
+                            'Score': list(result['aspects'].values())
+                        }).sort_values('Score', ascending=False)
+                        
+                        aspects_df['Score'] = aspects_df['Score'].apply(lambda x: f"{x:.1%}")
+                        st.dataframe(aspects_df, use_container_width=True, hide_index=True)
+            
+            # Bulk export
+            st.markdown("---")
+            export_df = pd.DataFrame([
+                {
+                    'Review': r['review_text'][:100],
+                    'Sentiment': r['sentiment'],
+                    'Confidence': f"{r['confidence']:.1%}",
+                    'Stars': r['stars'],
+                    'Timestamp': r['timestamp'][:10],
+                    'Favorited': '❤️' if r.get('favorited') else ''
+                }
+                for r in filtered_results
+            ])
+            
+            csv_export = export_df.to_csv(index=False)
+            st.download_button(
+                label="⬇️ Export Filtered Results as CSV",
+                data=csv_export,
+                file_name=f"results_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
 st.markdown('</div>', unsafe_allow_html=True)

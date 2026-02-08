@@ -1,12 +1,12 @@
 [theme]
 primaryColor = "#4F8BF9"
-backgroundColor = "#181c27"
-secondaryBackgroundColor = "#232a3b"
-textColor = "#e6eafe"
+backgroundColor = "#0f1419"
+secondaryBackgroundColor = "#1a1f2e"
+textColor = "#f0f3ff"
 font = "sans serif"
 
 [client]
-showErrorDetails = true
+showErrorDetails = false
 toolbarMode = "minimal"
 
 [logger]
@@ -15,5 +15,9 @@ level = "info"
 [server]
 port = 8501
 headless = true
-runOnSave = true
 maxUploadSize = 200
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

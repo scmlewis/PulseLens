@@ -46,53 +46,64 @@ Open http://localhost:8501 in your browser - that's it! 🎉
 
 ---
 
-## Deploy to Streamlit Cloud (Free)
+## Deploy to Streamlit Cloud (Free) 🚀
 
-The easiest way to share your app with others:
+The easiest way to share your app with others - **5 minutes to live URL!**
 
-### 1. Push to GitHub
+### Quick Deploy
+
+1. **Push to GitHub**
 ```bash
 git add .
 git commit -m "Ready for Streamlit Cloud"
 git push origin main
 ```
 
-### 2. Deploy to Streamlit Cloud
-1. Go to [share.streamlit.io](https://share.streamlit.io)
-2. Sign in with GitHub
-3. Click "New app"
-4. Select your repository, branch, and `app.py` as main file
-5. Click "Deploy"
+2. **Deploy**
+   - Go to [share.streamlit.io](https://share.streamlit.io)
+   - Click "New app" → select your repo, branch `main`, file `app.py`
+   - Click "Deploy"
+   - Your app is live in ~2-5 minutes! 🎉
 
-**That's it!** Your app is now live at `share.streamlit.io/your-username/your-repo/main`
+**📖 Full guide:** See [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+### Session-Based Results (Important!)
+Results are stored **in-session only** (not persistent across refreshes). Users must export to CSV to save results.
+
+**Want persistent results?** See [PERSISTENCE.md](./PERSISTENCE.md) for database options (Supabase, Firebase, Google Sheets).
 
 ---
 
 ## How to Use
 
-### **Tab 1: Single Review Analysis**
+### **Tab 1: Analyze One Review**
 1. Paste or type a customer review
-2. Select an **industry preset** (automatic aspect recommendation) OR manually choose specific aspects
-3. Click **Classify Now**
+2. Select an **industry preset** (auto-fills aspects) OR manually choose aspects
+3. Click **Analyze Now**
 4. See:
-   - 😊/😐/😞 **Sentiment** (positive/neutral/negative)
-   - ⭐ **Star Rating** (1-5 stars mapped from sentiment confidence)
-   - **Aspect Relevance Scores** (how strongly each aspect appears in the review)
+   - 😊/😐/😞 **Sentiment** (positive/neutral/negative) + confidence %
+   - ⭐ **Star Rating** (1-5 stars)
+   - **Aspect Relevance Scores** (chart + table)
 
-### **Tab 2: Batch Reviews**
-1. **Upload CSV** with a `review` column, OR **paste reviews** (one per line)
+### **Tab 2: Analyze Multiple Reviews**
+1. **Upload CSV** (with `review` column) OR **paste reviews** (one per line)
 2. Select aspects to analyze
-3. Click **Classify Batch**
+3. Click **Analyze Batch**
 4. Get:
    - Results table with all analyses
    - Sentiment distribution pie chart
    - Star rating bar chart
-   - Download button for CSV export
+   - **⬇️ Download as CSV**
 
-### **Tab 3: About & Help**
-- Industry aspect suggestions (click to add to your selection)
-- Explanation of sentiment vs. rating
-- FAQ & tips
+### **Tab 3: My Results**
+- View all analyses from current session
+- 🔍 Search by review text
+- 🎛️ Filter by sentiment & star rating
+- ❤️ Mark favorites
+- 🗑️ Delete results
+- ⬇️ **Export filtered results as CSV**
+
+📝 *Note: Results cleared on page refresh (session-only storage)*
 
 ---
 

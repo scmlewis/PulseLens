@@ -1,48 +1,574 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-.stApp { background: #181c27 !important; font-family: 'Inter', sans-serif !important; color: #f3f6fb !important;}
-.main-container { width: 100vw !important; max-width: none;}
-.header-banner { background: linear-gradient(90deg,#4F8BF9 65%, #2D5AAB 100%);
-    border-radius:1.15rem; padding:1.17em 2.2em 1.13em 2.2em; box-shadow:0 2px 16px #23274629;
-    text-align:center; border-bottom: 4px solid #43a2ff; margin-bottom: 2em;}
-.header-banner h1 { font-size: 2.07em; font-weight: 900; margin: 0 0 0.14em 0; color: #fff; line-height:1.1; letter-spacing:-1px;}
-.header-banner .desc { font-weight: 500; font-size: 1.17em; color: #e2ebff; margin-top:0.18em; }
-.stTabs [data-baseweb='tab-list'] { background: none !important; justify-content:center;}
-.stTabs [data-baseweb='tab'] { border-radius: 22px 22px 0 0 !important; margin-right: 1.2em !important;
-    font-size: 1.18em !important; font-weight: 800 !important; color: #adc8ff !important;
-    padding: 0.89em 2.33em 0.85em 2.33em !important; background: #232a3b !important; box-shadow: 0 2.5px 16px #22283a35;
-    border: 2.1px solid #3F59B844;}
-.stTabs [data-baseweb='tab'][aria-selected='true'] { color: #fff !important; background: linear-gradient(90deg, #527afe, #3553c3 90%);
-    border-bottom: 3.1px solid #8dc7fc !important; box-shadow: 0 2px 12px #325aee18;}
-.stButton > button { background: linear-gradient(90deg,#32449b,#485cdd);
-    color: #fff !important; font-weight: 700 !important; border-radius: 8px !important;
-    padding: 0.7em 2.3em; font-size: 1.11em !important;border:none;box-shadow:0 1px 10px #18113319;
-    margin:0 .24em 0 .24em; display:inline-block; transition: all 0.22s;}
-.stButton > button:hover, .stButton>button:focus { background: linear-gradient(90deg,#3970e8,#61a3fd) !important; color: #fff !important;}
-.stTextInput > div>input, .stTextArea textarea, .stSelectbox>div>div {
-    background: #22283a !important; border-radius: 8px !important; color: #e3f2ff !important;
-    border: 2px solid #3a4ece !important; font-size: 1.13em !important; font-weight: 500 !important;}
-.stTextInput, .stTextArea, .stSelectbox { margin-top: 0em !important; margin-bottom: 0.11em !important; }
-.stTextInput label, .stTextArea label, .stSelectbox label { margin-bottom:0.08em !important; }
-.card { background: #232a3b; border-radius: 13px; box-shadow: 0 5px 20px #1c223510;
-    padding: 1.15rem 2.1rem 1.1rem 2.1rem; margin-bottom: 0.6em;}
-.stDataFrame >div>div { border-radius: 11px !important; box-shadow:0 0 14px #151d2e;}
-.output-card { background: #232a3b; border-radius:11px; box-shadow: 0 2px 12px #191c2e35; padding: 1.08em 2em; margin-bottom:0.18em; color: #f3f6fb; font-size:1.15em; letter-spacing:0.006em;}
-.output-stars { margin:0.12em 0 0.19em 0; font-size:1.28em;}
-.senti-positive { color:#90ffb8;font-weight:700;}
-.senti-label { font-weight:900; font-size:1.13em; margin-right:0.24em;}
-.senti-score { color:#b5b9fc; font-size:0.98em; margin-left:0.12em;}
-.aspect-row { display:flex;align-items:center;margin:0.09em 0;}
-.aspect-dot { width:15px;height:15px;display:inline-block;border-radius:24px;
-    background:linear-gradient(145deg,#5ae0fb,#1e61e6 80%); margin-right: 0.24em;}
-.aspect-dot-lo {background:linear-gradient(145deg,#adc6ff,#434766 80%);}
-.aspect-score {font-size:1.03em;font-weight:500;margin-left:0.27em; color:#77ebfa;}
-.aspect-label-list {margin:0.37em 0 0.12em 1px;}
-/* Aspects grid and card styles - now in tab, not sidebar */
-.suggested-aspects-title { font-size: 1.28em; color: #86c6f6; font-weight: 900; margin-bottom:0.4em; }
-.suggested-aspect-grid { display: flex; flex-wrap: wrap; gap:1.7em 1em; padding:0 0.3em; }
-.suggested-aspect-group { background: #232a3b; border-radius:10px; margin-bottom:0.09em;
-    margin-top:0.13em; padding: 0.9em 1.19em 0.75em 1.1em; box-shadow: 0 0.5px 6px #1d223927;}
-.suggested-group-title { font-size: 1.12em; color:#79b3f9; font-weight:900; margin-bottom:0.36em; }
-.suggested-chips-row { display: flex; flex-wrap: wrap; gap:0.28em 0.49em; margin-top:0.01em;}
-.suggested-chip { display:inline-block;background:#293053;color:#e7eefe;border-radius:7px;
-    padding: 0.22em 1em;margin:0 0.06em 0.14em 0;font-size:1em;font-weight:600; letter-spacing:0.01em;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+/* Core dark theme with improved contrast */
+.stApp { 
+    background: #0f1419 !important; 
+    font-family: 'Inter', sans-serif !important; 
+    color: #f0f3ff !important;
+}
+
+.main-container { 
+    width: 100% !important; 
+    max-width: 100% !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+}
+
+/* Header banner - refined gradient */
+.header-banner { 
+    background: linear-gradient(135deg, #4F8BF9 0%, #2D5AAB 100%);
+    border-radius: 1.15rem; 
+    padding: 1.5em 2.5em; 
+    box-shadow: 0 4px 24px rgba(79, 139, 249, 0.15);
+    text-align: center; 
+    border-bottom: 3px solid #5D9CFF;
+    margin: 0 0 2em 0;
+}
+
+.header-banner h1 { 
+    font-size: 2.2em; 
+    font-weight: 900; 
+    margin: 0 0 0.2em 0; 
+    color: #ffffff; 
+    line-height: 1.1; 
+    letter-spacing: -0.5px;
+}
+
+.header-banner .desc { 
+    font-weight: 500; 
+    font-size: 1.1em; 
+    color: #e0eaff; 
+    margin-top: 0.3em;
+}
+/* Tabs - improved styling with smooth transitions */
+.stTabs [data-baseweb='tab-list'] { 
+    background: none !important; 
+    justify-content: center;
+    border-bottom: 2px solid rgba(79, 139, 249, 0.15) !important;
+}
+
+.stTabs [data-baseweb='tab'] { 
+    border-radius: 12px 12px 0 0 !important; 
+    margin-right: 1em !important;
+    font-size: 1.1em !important; 
+    font-weight: 700 !important; 
+    color: #a8c4ff !important;
+    padding: 1em 2em !important; 
+    background: rgba(35, 42, 59, 0.5) !important; 
+    box-shadow: none !important;
+    border: 1px solid rgba(63, 89, 184, 0.3) !important;
+    transition: all 0.25s ease !important;
+}
+
+.stTabs [data-baseweb='tab']:hover {
+    background: rgba(35, 42, 59, 0.8) !important;
+    color: #c5d9ff !important;
+}
+
+.stTabs [data-baseweb='tab'][aria-selected='true'] { 
+    color: #ffffff !important; 
+    background: linear-gradient(135deg, #4F8BF9, #3553c3) !important;
+    border: 1px solid rgba(93, 156, 255, 0.5) !important;
+    box-shadow: 0 4px 12px rgba(79, 139, 249, 0.25) !important;
+}
+/* Buttons - improved with smooth transitions and states */
+.stButton > button { 
+    background: linear-gradient(135deg, #4F8BF9, #3553c3) !important;
+    color: #ffffff !important; 
+    font-weight: 600 !important; 
+    border-radius: 8px !important;
+    padding: 0.8em 2em !important; 
+    font-size: 1em !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 2px 8px rgba(79, 139, 249, 0.2) !important;
+    margin: 0 0.3em !important; 
+    display: inline-block; 
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+}
+
+.stButton > button:hover { 
+    background: linear-gradient(135deg, #6BA3FF, #4A68E8) !important; 
+    color: #ffffff !important;
+    box-shadow: 0 4px 16px rgba(79, 139, 249, 0.35) !important;
+    transform: translateY(-2px) !important;
+}
+
+.stButton > button:active, .stButton > button:focus { 
+    background: linear-gradient(135deg, #3D7FE8, #2A3FAD) !important;
+    box-shadow: 0 2px 8px rgba(45, 90, 171, 0.4) !important;
+}
+/* Form inputs - improved contrast and styling */
+.stTextInput > div > input, 
+.stTextArea textarea, 
+.stSelectbox > div > div,
+.stMultiSelect > div > div {
+    background: #1a1f2e !important; 
+    border-radius: 8px !important; 
+    color: #f0f3ff !important;
+    border: 2px solid rgba(79, 139, 249, 0.3) !important; 
+    font-size: 1em !important; 
+    font-weight: 400 !important;
+    transition: all 0.2s ease !important;
+    caret-color: #5D9CFF !important;
+}
+
+.stTextInput > div > input::placeholder,
+.stTextArea textarea::placeholder {
+    color: #7a8ba8 !important;
+}
+
+.stTextInput > div > input:focus, 
+.stTextArea textarea:focus, 
+.stSelectbox > div > div:focus,
+.stMultiSelect > div > div:focus {
+    border-color: #5D9CFF !important;
+    box-shadow: 0 0 0 3px rgba(79, 139, 249, 0.1) !important;
+    background: #1f2632 !important;
+}
+
+.stTextInput, 
+.stTextArea, 
+.stSelectbox,
+.stMultiSelect { 
+    margin-top: 0.5em !important; 
+    margin-bottom: 1em !important; 
+}
+
+.stTextInput label, 
+.stTextArea label, 
+.stSelectbox label,
+.stMultiSelect label { 
+    margin-bottom: 0.5em !important; 
+    color: #d4e0ff !important;
+    font-weight: 500 !important;
+}
+/* Cards - with subtle gradients and depth */
+.card { 
+    background: linear-gradient(135deg, rgba(35, 42, 59, 0.6), rgba(30, 40, 55, 0.4));
+    border-radius: 12px; 
+    box-shadow: 0 4px 16px rgba(10, 10, 20, 0.4);
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    padding: 1.5em 2em; 
+    margin-bottom: 1.2em;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    background: linear-gradient(135deg, rgba(40, 50, 70, 0.8), rgba(35, 45, 65, 0.6));
+    box-shadow: 0 8px 24px rgba(79, 139, 249, 0.15);
+    border-color: rgba(79, 139, 249, 0.3);
+}
+
+.stDataFrame > div > div { 
+    border-radius: 11px !important; 
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(79, 139, 249, 0.1) !important;
+}
+
+/* Data table styling */
+.stDataFrameResizable { 
+    background: #1a1f2e !important; 
+}
+
+section[data-testid="stDataFrameContainer"] {
+    background: rgba(26, 31, 46, 0.5) !important;
+}
+/* Output styling - results display */
+.output-card { 
+    background: linear-gradient(135deg, rgba(35, 42, 59, 0.7), rgba(30, 37, 55, 0.5));
+    border-radius: 11px; 
+    box-shadow: 0 2px 12px rgba(10, 10, 20, 0.3); 
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    padding: 1.2em 1.8em; 
+    margin-bottom: 1em; 
+    color: #f0f3ff; 
+    font-size: 1.1em; 
+    letter-spacing: 0.005em;
+    transition: all 0.25s ease;
+}
+
+.output-card:hover {
+    border-color: rgba(79, 139, 249, 0.3);
+    box-shadow: 0 4px 16px rgba(79, 139, 249, 0.1);
+}
+
+.output-stars { 
+    margin: 0.2em 0 0.3em 0; 
+    font-size: 1.4em;
+}
+
+/* Sentiment colors - vibrant in dark mode */
+.senti-positive { 
+    color: #22c55e !important;
+    font-weight: 700;
+}
+
+.senti-neutral {
+    color: #f59e0b !important;
+    font-weight: 700;
+}
+
+.senti-negative {
+    color: #ef4444 !important;
+    font-weight: 700;
+}
+
+.senti-label { 
+    font-weight: 700; 
+    font-size: 1.1em; 
+    margin-right: 0.3em;
+}
+
+.senti-score { 
+    color: #a8d8ff; 
+    font-size: 0.95em; 
+    margin-left: 0.2em;
+}
+/* Aspect styling */
+.aspect-row { 
+    display: flex;
+    align-items: center;
+    margin: 0.8em 0;
+    padding: 0.5em;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.aspect-row:hover {
+    background: rgba(79, 139, 249, 0.05);
+}
+
+.aspect-dot { 
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5ae0fb, #1e61e6);
+    margin-right: 0.8em;
+    box-shadow: 0 2px 6px rgba(79, 139, 249, 0.2);
+}
+
+.aspect-dot-lo {
+    background: linear-gradient(135deg, #7a8ba8, #3a4a6a);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.aspect-score {
+    font-size: 1em;
+    font-weight: 600;
+    margin-left: 0.4em; 
+    color: #5ce0fb;
+}
+
+.aspect-label-list {
+    margin: 0.5em 0;
+}
+/* Industry presets styling */
+.suggested-aspects-title { 
+    font-size: 1.25em; 
+    color: #86c6f6; 
+    font-weight: 700; 
+    margin: 1.5em 0 1em 0;
+}
+
+.suggested-aspect-grid { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 1.5em; 
+    padding: 0;
+}
+
+.suggested-aspect-group { 
+    background: linear-gradient(135deg, rgba(35, 42, 59, 0.6), rgba(30, 37, 55, 0.4));
+    border-radius: 10px; 
+    margin-bottom: 0.5em;
+    padding: 1.2em; 
+    box-shadow: 0 2px 8px rgba(10, 10, 20, 0.2);
+    border: 1px solid rgba(79, 139, 249, 0.15);
+    transition: all 0.25s ease;
+}
+
+.suggested-aspect-group:hover {
+    border-color: rgba(79, 139, 249, 0.3);
+    box-shadow: 0 4px 12px rgba(79, 139, 249, 0.15);
+}
+
+.suggested-group-title { 
+    font-size: 1.05em; 
+    color: #79b3f9; 
+    font-weight: 700; 
+    margin-bottom: 0.7em; 
+}
+
+.suggested-chips-row { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 0.5em; 
+}
+
+.suggested-chip { 
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(41, 48, 83, 0.8), rgba(35, 42, 59, 0.6));
+    color: #d4e0ff;
+    border: 1px solid rgba(79, 139, 249, 0.2);
+    border-radius: 20px;
+    padding: 0.4em 1.2em;
+    margin: 0.2em 0;
+    font-size: 0.95em;
+    font-weight: 500; 
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+
+.suggested-chip:hover {
+    background: linear-gradient(135deg, rgba(79, 139, 249, 0.3), rgba(53, 83, 195, 0.2));
+    border-color: rgba(79, 139, 249, 0.4);
+    color: #f0f3ff;
+}
+
+/* Metrics styling */
+.stMetric { 
+    background: linear-gradient(135deg, rgba(35, 42, 59, 0.5), rgba(30, 37, 55, 0.3)) !important;
+    border-radius: 12px !important;
+    padding: 1.2em !important;
+    border: 1px solid rgba(79, 139, 249, 0.15) !important;
+    transition: all 0.25s ease !important;
+}
+
+.stMetric:hover {
+    background: linear-gradient(135deg, rgba(45, 55, 75, 0.6), rgba(40, 50, 70, 0.4)) !important;
+    border-color: rgba(79, 139, 249, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(79, 139, 249, 0.1) !important;
+}
+
+/* Loading and animation states */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stSpinner > div {
+    border-color: rgba(79, 139, 249, 0.3) !important;
+    border-right-color: #4F8BF9 !important;
+}
+
+/* Success and error messages */
+.stAlert {
+    border-radius: 10px !important;
+    border: 1px solid rgba(79, 139, 249, 0.2) !important;
+}
+
+.stSuccess {
+    background-color: rgba(34, 197, 94, 0.1) !important;
+    border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.stError {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.stWarning {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.stInfo {
+    background-color: rgba(79, 139, 249, 0.1) !important;
+    border-color: rgba(79, 139, 249, 0.3) !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(26, 31, 46, 0.6) !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(79, 139, 249, 0.4) !important;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 139, 249, 0.6) !important;
+}
+
+/* Typography - better spacing and hierarchy */
+h1, h2, h3, h4, h5, h6 {
+    color: #f0f3ff !important;
+    margin-top: 1.5em !important;
+    margin-bottom: 0.8em !important;
+}
+
+h1 { font-size: 2.2em; font-weight: 800; }
+h2 { font-size: 1.8em; font-weight: 700; }
+h3 { font-size: 1.5em; font-weight: 700; }
+h4 { font-size: 1.25em; font-weight: 600; }
+
+p, li {
+    line-height: 1.6;
+    color: #d4e0ff;
+}
+
+/* Markdown styling */
+mark {
+    background-color: rgba(79, 139, 249, 0.2) !important;
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    color: #f0f3ff !important;
+}
+
+/* ================= RESPONSIVE DESIGN ================= */
+
+/* Tablet (768px and down) */
+@media (max-width: 768px) {
+    .main-container {
+        padding: 0 1rem !important;
+    }
+    
+    .header-banner {
+        padding: 1.2em 1.5em !important;
+        margin: 0 0 1.5em 0 !important;
+    }
+    
+    .header-banner h1 {
+        font-size: 1.6em !important;
+    }
+    
+    .header-banner .desc {
+        font-size: 0.95em !important;
+    }
+    
+    .stTabs [data-baseweb='tab'] {
+        font-size: 0.95em !important;
+        padding: 0.8em 1.2em !important;
+        margin-right: 0.5em !important;
+    }
+    
+    .stButton > button {
+        font-size: 0.9em !important;
+        padding: 0.7em 1.5em !important;
+        width: 100% !important;
+    }
+    
+    .card {
+        padding: 1em 1.2em !important;
+    }
+    
+    h1 { font-size: 1.8em; }
+    h2 { font-size: 1.4em; }
+    h3 { font-size: 1.2em; }
+    
+    .stMetric {
+        padding: 0.9em !important;
+    }
+}
+
+/* Mobile (480px and down) */
+@media (max-width: 480px) {
+    .main-container {
+        padding: 0 0.8rem !important;
+    }
+    
+    .header-banner {
+        padding: 1em !important;
+        border-radius: 0.8rem !important;
+        margin: 0 0 1rem 0 !important;
+    }
+    
+    .header-banner h1 {
+        font-size: 1.4em !important;
+        margin-bottom: 0.3em !important;
+    }
+    
+    .header-banner .desc {
+        font-size: 0.85em !important;
+    }
+    
+    .stTabs [data-baseweb='tab-list'] {
+        justify-content: flex-start !important;
+        overflow-x: auto !important;
+    }
+    
+    .stTabs [data-baseweb='tab'] {
+        font-size: 0.85em !important;
+        padding: 0.7em 1em !important;
+        white-space: nowrap !important;
+    }
+    
+    .stTextInput > div > input,
+    .stTextArea textarea,
+    .stSelectbox > div > div {
+        font-size: 16px !important; /* Prevent zoom on iOS */
+    }
+    
+    .stTextArea textarea {
+        height: 120px !important;
+    }
+    
+    .stButton > button {
+        font-size: 0.85em !important;
+        padding: 0.6em 1.2em !important;
+        width: 100% !important;
+        margin: 0.3em 0 !important;
+    }
+    
+    .card {
+        padding: 0.8em 1em !important;
+        margin-bottom: 1em !important;
+    }
+    
+    .stDataFrame > div > div {
+        font-size: 0.85em !important;
+    }
+    
+    h1 { font-size: 1.4em; margin-top: 1em; }
+    h2 { font-size: 1.15em; }
+    h3 { font-size: 1em; }
+    h4 { font-size: 0.9em; }
+    
+    .stMetric {
+        padding: 0.7em !important;
+    }
+    
+    .suggested-chip {
+        font-size: 0.85em !important;
+        padding: 0.3em 0.8em !important;
+    }
+    
+    .aspect-row {
+        margin: 0.6em 0 !important;
+    }
+}
+
+/* Extra small (320px and down) */
+@media (max-width: 320px) {
+    .header-banner h1 {
+        font-size: 1.2em !important;
+    }
+    
+    .stTabs [data-baseweb='tab'] {
+        font-size: 0.75em !important;
+        padding: 0.6em 0.8em !important;
+    }
+    
+    .stButton > button {
+        font-size: 0.8em !important;
+    }
+}
