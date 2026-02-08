@@ -255,32 +255,34 @@ with tab1:
     st.markdown("## 💬 Analyze a Single Review")
     st.markdown("Paste or type a customer review below to get instant sentiment analysis and aspect scores.", unsafe_allow_html=True)
     
+    # Industry selection (OUTSIDE form - callbacks not allowed inside forms)
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown("**🏭 Industry (Optional)**")
+        st.markdown("<small>Auto-populate aspects when you select an industry</small>", unsafe_allow_html=True)
+        industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
+        st.selectbox(
+            "Choose an industry:",
+            industries,
+            key='industry_select',
+            label_visibility='collapsed',
+            on_change=on_industry_select
+        )
+    
+    with col2:
+        st.markdown("**✨ Quick Actions**")
+        st.markdown("<small>Try a sample review or clear the field</small>", unsafe_allow_html=True)
+        col_sample, col_clear = st.columns(2)
+        with col_sample:
+            st.button("Load Sample", on_click=set_sample, key="gen_sample_btn", use_container_width=True)
+        with col_clear:
+            st.button("Clear", on_click=clear_text, key="clear_btn", use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Form for main inputs (INSIDE form - no callbacks allowed)
     with st.form(key='single_review_form'):
-        col1, col2 = st.columns([1, 1])
-        
-        with col1:
-            st.markdown("**🏭 Industry (Optional)**")
-            st.markdown("<small>Auto-populate aspects when you select an industry</small>", unsafe_allow_html=True)
-            industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
-            st.selectbox(
-                "Choose an industry:",
-                industries,
-                key='industry_select',
-                label_visibility='collapsed',
-                on_change=on_industry_select
-            )
-        
-        with col2:
-            st.markdown("**✨ Quick Actions**")
-            st.markdown("<small>Try a sample review or clear the field</small>", unsafe_allow_html=True)
-            col_sample, col_clear = st.columns(2)
-            with col_sample:
-                st.button("Load Sample", on_click=set_sample, key="gen_sample_btn", use_container_width=True)
-            with col_clear:
-                st.button("Clear", on_click=clear_text, key="clear_btn", use_container_width=True)
-        
-        st.markdown("---")
-        
         st.markdown("**📝 Review Text**")
         st.markdown("<small>Enter a customer review (at least 10 characters)</small>", unsafe_allow_html=True)
         text = st.text_area(
