@@ -8,29 +8,36 @@ import pandas as pd
 import random
 from transformers import pipeline
 import plotly.express as px
-        "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
-        "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
-        "👗 Fashion": ["fit", "material", "style", "comfort", "design", "price"],
-        "🛒 Supermarket": ["freshness", "variety", "checkout", "customer service", "packaging", "speed"],
-        "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
-        "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
-    }
-    SAMPLE_COMMENTS = [
-        "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
-        "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
-        "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
-        "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
-        "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
-        "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
-    ]
 
-# Configuration
-BACKEND_URL = "http://127.0.0.1:5000"
+# ==================== DATA STRUCTURES ====================
+
+GROUPED_ASPECTS = {
+    "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
+    "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
+    "👗 Fashion": ["fit", "material", "style", "comfort", "design", "price"],
+    "🛒 Supermarket": ["freshness", "variety", "checkout", "customer service", "packaging", "speed"],
+    "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
+    "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
+}
+
+SENTIMENT_LABELS = ["positive", "neutral", "negative"]
+
+SAMPLE_COMMENTS = [
+    "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
+    "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
+    "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
+    "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
+    "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
+    "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
+]
+
+# ==================== PAGE CONFIG ====================
 
 st.set_page_config(
     page_title="PulseLens — Customer Pulse Analyzer",
     page_icon="📡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # Header and style
@@ -40,149 +47,48 @@ try:
     st.markdown(f"<style>{_css}</style>", unsafe_allow_html=True)
     st.markdown('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">', unsafe_allow_html=True)
 except Exception:
-    # Fallback to inline minimal styling if file missing
     st.markdown('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">', unsafe_allow_html=True)
     st.markdown('<style>.main-container{max-width:100vw}</style>', unsafe_allow_html=True)
+
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # HEADER
 st.markdown("""
 <div class="header-banner">
     <h1>📡 PulseLens — Customer Pulse Analyzer</h1>
-    <div class="desc">AI-powered customer pulse and aspect insights.</div>
+    <div class="desc">AI-powered sentiment & aspect classification using Hugging Face zero-shot learning.</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Model and data
+# ==================== MODEL & CACHE ====================
+
 @st.cache_resource
 def load_zero_shot():
+    """Load the zero-shot classification model once and cache it."""
     return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
 def get_classifier():
+    """Get or initialize the classifier in session state."""
     if 'classifier' not in st.session_state:
         st.session_state['classifier'] = load_zero_shot()
     return st.session_state['classifier']
 
-GROUPED_ASPECTS = {
-    "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
-    "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
-    "👗 Fashion": ["fit", "material", "style", "comfort", "design", "price"],
-    "🛒 Supermarket": ["freshness", "variety", "checkout", "customer service", "packaging", "speed"],
-    "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
-    "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
-}
-SENTIMENT_LABELS = ["positive", "neutral", "negative"]
-SAMPLE_COMMENTS = [
-    "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
-    "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
-    "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
-    "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
-    "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
-    "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
-]
+# ==================== UTILITY FUNCTIONS ====================
 
-def classify_batch(reviews, candidate_labels, classifier_getter, chunk_size=32, progress=None):
-    """Classify reviews in chunks, returning a list of outputs per review.
-    `classifier_getter` should be a callable returning the HF pipeline.
-    Progress, if provided, must implement `.update(float)` where float is between 0.0 and 1.0.
-    """
-    if not reviews:
-        return []
-    cls = classifier_getter()
-    results = []
-    total = len(reviews)
-    for i in range(0, total, chunk_size):
-        chunk = reviews[i : i + chunk_size]
-        try:
-            outs = cls(chunk, candidate_labels=candidate_labels, multi_label=False)
-        except Exception:
-            # Fallback: classify one-by-one
-            outs = []
-            for item in chunk:
-                try:
-                    outs.append(cls(item, candidate_labels=candidate_labels, multi_label=False))
-                except Exception:
-                    outs.append({"labels": [], "scores": []})
-        # Normalize to list of per-item outputs
-        if isinstance(outs, dict):
-            outs = [outs]
-        results.extend(outs)
-        if progress is not None:
-            try:
-                progress.update(min(1.0, (i + len(chunk)) / total))
-            except Exception:
-                pass
-    return results
-
-# Model and data
-@st.cache_resource
-def load_zero_shot():
-    return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-
-def get_classifier():
-    if 'classifier' not in st.session_state:
-        st.session_state['classifier'] = load_zero_shot()
-    return st.session_state['classifier']
-
-
-def classify_batch(reviews, candidate_labels, classifier_getter, chunk_size=32, progress=None):
-    """Classify reviews in chunks, returning a list of outputs per review.
-    `classifier_getter` should be a callable returning the HF pipeline.
-    Progress, if provided, must implement `.update(float)` where float is between 0.0 and 1.0.
-    """
-    if not reviews:
-        return []
-    cls = classifier_getter()
-    results = []
-    total = len(reviews)
-    for i in range(0, total, chunk_size):
-        chunk = reviews[i : i + chunk_size]
-        try:
-            outs = cls(chunk, candidate_labels=candidate_labels, multi_label=False)
-        except Exception:
-            # Fallback: classify one-by-one
-            outs = []
-            for item in chunk:
-                try:
-                    outs.append(cls(item, candidate_labels=candidate_labels, multi_label=False))
-                except Exception:
-                    outs.append({"labels": [], "scores": []})
-        # Normalize to list of per-item outputs
-        if isinstance(outs, dict):
-            outs = [outs]
-        results.extend(outs)
-        if progress is not None:
-            try:
-                progress.update(min(1.0, (i + len(chunk)) / total))
-            except Exception:
-                pass
-    return results
-GROUPED_ASPECTS = {
-    "🍽️ Restaurant": ["food", "service", "ambience", "price", "delivery", "staff", "product quality"],
-    "💻 Electronics": ["battery", "display", "camera", "performance", "durability", "shipping", "support"],
-    "👗 Fashion": ["fit", "material", "style", "comfort", "design", "price"],
-    "🛒 Supermarket": ["freshness", "variety", "checkout", "customer service", "packaging", "speed"],
-    "📚 Books": ["plot", "characters", "writing", "pacing", "ending", "value"],
-    "🏨 Hotel": ["cleanliness", "location", "amenities", "room", "wifi", "maintenance"]
-}
-SENTIMENT_LABELS = ["positive", "neutral", "negative"]
-SAMPLE_COMMENTS = [
-    "I visited the restaurant last night and was impressed by the cozy ambience and friendly staff. The food was delicious, especially the pasta, but the wait time for our main course was a bit long. Overall, a pleasant experience and I would recommend it to friends.",
-    "This smartphone has a stunning display and the battery lasts all day, even with heavy use. However, the camera struggles in low light and the device sometimes gets warm during gaming sessions. Customer support was helpful when I had questions about the warranty.",
-    "The dress I ordered online arrived quickly and the material feels premium. The fit is true to size and the color matches the photos perfectly. I received several compliments at the event, but I wish the price was a bit lower.",
-    "Shopping at this supermarket is always convenient. The produce section is well-stocked and the staff are courteous. However, the checkout lines can get long during weekends and some items are more expensive compared to other stores.",
-    "This novel captivated me from the first page. The plot twists kept me guessing, and the characters were well-developed. The pacing slowed down in the middle, but the ending was satisfying. Highly recommended for fans of mystery and drama.",
-    "Our stay at the hotel was comfortable. The room was clean and spacious, and the staff were attentive to our needs. The breakfast buffet had a good variety, but the Wi-Fi connection was unreliable at times. The location is perfect for sightseeing."
-]
 def sentiment_to_stars(sentiment, score):
-    # Map sentiment labels + confidence to a 1-5 star rating
+    """
+    Map sentiment label + confidence score to 1-5 star rating.
+    - Positive high-confidence (≥90%) → 5 stars
+    - Positive medium-confidence (≥75%) → 4 stars
+    - Neutral → 3 stars
+    - Negative medium-confidence (≥60%) → 2 stars
+    - Negative high-confidence (≥85%) → 1 star
+    """
     if sentiment == "positive":
         if score >= 0.9:
             return 5
         elif score >= 0.75:
             return 4
-        elif score >= 0.6:
-            return 3
         else:
             return 3
     elif sentiment == "neutral":
@@ -194,23 +100,75 @@ def sentiment_to_stars(sentiment, score):
             return 2
         else:
             return 2
+
+def classify_batch(reviews, candidate_labels, classifier_getter, chunk_size=32, progress=None):
+    """
+    Classify reviews in chunks, returning a list of outputs per review.
+    
+    Args:
+        reviews: List of review texts
+        candidate_labels: List of aspects to classify
+        classifier_getter: Callable that returns the HF pipeline
+        chunk_size: Batch size for processing (default 32)
+        progress: Optional progress bar object with .update(float) method
+    
+    Returns:
+        List of classification outputs (one per review)
+    """
+    if not reviews:
+        return []
+    
+    cls = classifier_getter()
+    results = []
+    total = len(reviews)
+    
+    for i in range(0, total, chunk_size):
+        chunk = reviews[i : i + chunk_size]
+        try:
+            outs = cls(chunk, candidate_labels=candidate_labels, multi_label=False)
+        except Exception:
+            outs = []
+            for item in chunk:
+                try:
+                    outs.append(cls(item, candidate_labels=candidate_labels, multi_label=False))
+                except Exception:
+                    outs.append({"labels": [], "scores": []})
+        
+        if isinstance(outs, dict):
+            outs = [outs]
+        results.extend(outs)
+        
+        if progress is not None:
+            try:
+                progress.update(min(1.0, (i + len(chunk)) / total))
+            except Exception:
+                pass
+    
+    return results
+
+# ==================== SESSION STATE CALLBACKS ====================
+
 def on_industry_select():
+    """Callback: when user selects an industry, populate aspects."""
     sel = st.session_state.get('industry_select')
     if sel and sel != "-- Select industry --" and sel in GROUPED_ASPECTS:
         st.session_state['aspects_select'] = GROUPED_ASPECTS[sel]
-        st.session_state['review_text'] = random.choice(SAMPLE_COMMENTS)
 
 def set_sample():
+    """Callback: load a random sample review."""
     st.session_state["review_text"] = random.choice(SAMPLE_COMMENTS)
+
 def clear_text():
+    """Callback: clear the review text."""
     st.session_state["review_text"] = ""
 
-# UI helpers for aspects
-def _all_aspects():
+# ==================== MAIN APP ====================
+
+# Helper function for all aspects
+def get_all_aspects():
     out = []
     for v in GROUPED_ASPECTS.values():
         out.extend(v)
-    # preserve order, unique
     seen = set()
     uniq = []
     for a in out:
@@ -219,326 +177,316 @@ def _all_aspects():
             uniq.append(a)
     return uniq
 
-def append_aspect(key, aspect):
-    cur = st.session_state.get(key, []) or []
-    if aspect not in cur:
-        st.session_state[key] = cur + [aspect]
+# Create tabs
+tab1, tab2, tab3 = st.tabs(["📝 Analyze a Review", "📊 Batch Reviews", "ℹ️ About & Help"])
 
-def append_to_both(aspect):
-    append_aspect('aspects_select', aspect)
-    append_aspect('batch_aspects_select', aspect)
-
-tab1, tab2, tab3 = st.tabs(["💬 Single Review", "📊 Batch Reviews", "❓ About & Help"])
-
-# --- Single Review Tab ---
+# ===== TAB 1: SINGLE REVIEW ANALYSIS =====
 with tab1:
     if "review_text" not in st.session_state:
         st.session_state["review_text"] = ""
-    # ensure aspect multiselect state exists
     if 'aspects_select' not in st.session_state:
         st.session_state['aspects_select'] = []
     if 'industry_select' not in st.session_state:
         st.session_state['industry_select'] = ''
-    st.markdown('<span style="color:#8eaffc;font-size:1.07em;font-weight:700;display:block;margin-bottom:0.09em;">💬 Enter a review</span>', unsafe_allow_html=True)
     
-    # Industry selectbox outside form (callbacks not allowed inside forms in Streamlit 1.37+)
-    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
+    st.markdown("### 💬 Enter a Review")
+    
+    st.markdown("**🏭 Industry Preset (optional):**")
     industries = ["-- Select industry --"] + list(GROUPED_ASPECTS.keys())
-    st.selectbox("Industry (preset)", industries, key='industry_select', label_visibility='collapsed', on_change=on_industry_select)
+    st.selectbox(
+        "Choose an industry to auto-fill aspects:",
+        industries,
+        key='industry_select',
+        label_visibility='collapsed',
+        on_change=on_industry_select
+    )
     
-    # Wrap single-review inputs in a form to allow batching of inputs before inference
     with st.form(key='single_review_form'):
-        text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
-        st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
-        submit = st.form_submit_button(label="🚦 Classify Now")
+        st.markdown("**Review Text:**")
+        text = st.text_area(
+            "Enter review:",
+            height=120,
+            key="review_text",
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("**Select Aspects:**")
+        st.multiselect(
+            "Choose aspects to analyze:",
+            options=get_all_aspects(),
+            default=st.session_state.get('aspects_select', []),
+            key='aspects_select',
+            label_visibility='collapsed'
+        )
+        
+        submit = st.form_submit_button(label="🔍 Classify Now", type="primary")
     
-    # Buttons outside the form (Streamlit 1.37+ requires callbacks to be outside forms)
-    st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
-    st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
-    st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
-    st.markdown('</div>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.button("✨ Load Sample", on_click=set_sample, key="gen_sample_btn")
+    with col2:
+        st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
 
     if submit:
-        # Run classification after form submit
         if not st.session_state.get('review_text', '').strip():
             st.error("Please enter a review.")
         elif not st.session_state.get('aspects_select'):
             st.error("Please select at least one aspect.")
         else:
-            with st.spinner("🔄 Classifying… Please wait."):
-                aspect_list = st.session_state.get('aspects_select', [])
+            with st.spinner("Analyzing sentiment and aspects..."):
                 try:
                     cls = get_classifier()
-                    sentiment_result = cls([st.session_state.get('review_text')], candidate_labels=SENTIMENT_LABELS)
+                    
+                    # Sentiment classification
+                    sentiment_result = cls(
+                        [st.session_state.get('review_text')],
+                        candidate_labels=SENTIMENT_LABELS
+                    )
                     if isinstance(sentiment_result, list):
                         sentiment_result = sentiment_result[0]
-                    aspect_result = cls([st.session_state.get('review_text')], candidate_labels=aspect_list, multi_label=True)
+                    
+                    # Aspect classification
+                    aspect_list = st.session_state.get('aspects_select', [])
+                    aspect_result = cls(
+                        [st.session_state.get('review_text')],
+                        candidate_labels=aspect_list,
+                        multi_label=True
+                    )
                     if isinstance(aspect_result, list):
                         aspect_result = aspect_result[0]
-                except Exception as e:
-                    st.error(f"Model inference failed: {e}")
-                    sentiment_result = None
-                    aspect_result = None
-                sentiment_emoji = {"positive": "😊", "neutral": "😐", "negative": "😞"}
-                if sentiment_result is not None:
-                    stars = sentiment_to_stars(sentiment_result['labels'][0], sentiment_result['scores'][0])
-                    st.markdown(
-                        f'''<div class="output-card">
-                          <span class="senti-label">Sentiment:</span> <span class="senti-positive">{sentiment_emoji.get(sentiment_result['labels'][0],'')}</span> <b class="senti-positive">{sentiment_result['labels'][0].capitalize()}</b>
-                          <span class="senti-score">(Score: {sentiment_result['scores'][0]:.2f})</span>
-                          <div class="output-stars">Star Rating: {'⭐'*stars} ({stars}/5)</div>
-                        </div>''', unsafe_allow_html=True
-                    )
-                    st.markdown('<div class="aspect-label-list" style="font-size:1.11em;font-weight:700;color:#a7c3fe;margin:0.2em 0 0.11em 1px;">Aspect Relevance Scores:</div>', unsafe_allow_html=True)
-                    df = pd.DataFrame({
-                        "Aspect": aspect_result["labels"],
-                        "Score": aspect_result["scores"]
-                    })
-                    for idx, row in df.iterrows():
-                        colorclass = "aspect-dot" if row["Score"] > 0.6 else "aspect-dot aspect-dot-lo"
-                        st.markdown(
-                            f'''<div class="aspect-row">
-                                <span class="{colorclass}"></span>
-                                <span style="font-weight:700;color:#7ecefa;">{row['Aspect']}</span>
-                                <span class="aspect-score">: {row["Score"]:.2f}</span>
-                            </div>''', unsafe_allow_html=True
+                    
+                    # Display results
+                    st.markdown("---")
+                    st.subheader("📊 Analysis Results")
+                    
+                    sentiment = sentiment_result['labels'][0]
+                    score = sentiment_result['scores'][0]
+                    stars = sentiment_to_stars(sentiment, score)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Sentiment", sentiment.title(), f"{score:.1%}")
+                    with col2:
+                        st.metric("Star Rating", "⭐" * stars, f"{stars}/5")
+                    with col3:
+                        st.metric("Confidence", f"{score:.1%}")
+                    
+                    st.markdown("---")
+                    st.write("**Aspect Relevance Scores:**")
+                    
+                    aspect_df = pd.DataFrame({
+                        'Aspect': aspect_result['labels'],
+                        'Score': aspect_result['scores']
+                    }).sort_values('Score', ascending=False)
+                    
+                    col_chart, col_table = st.columns([1, 1])
+                    
+                    with col_chart:
+                        fig = px.bar(
+                            aspect_df,
+                            x='Score',
+                            y='Aspect',
+                            orientation='h',
+                            color='Score',
+                            color_continuous_scale='Blues'
                         )
-    st.markdown('</div>', unsafe_allow_html=True)
+                        fig.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0))
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    with col_table:
+                        display_df = aspect_df.copy()
+                        display_df['Score'] = display_df['Score'].apply(lambda x: f"{x:.1%}")
+                        st.dataframe(display_df, use_container_width=True, hide_index=True)
+                        
+                except Exception as e:
+                    st.error(f"Classification failed: {e}")
 
-# --- Batch Reviews Tab (unchanged logic, as prior robust version) ---
-# ... [Paste in batch reviews code from before] ...
-
-# --- About/help tab - with suggested aspects cards ---
-with tab3:
-    st.markdown("""
-    <div style="max-width: 800px; margin: 1.2em auto 0 auto; background:#232a3b; border-radius:13px; padding:2em 2.4em 1.8em 2.4em;">
-    <h2 style="text-align:center; color:#8eaffc; margin-bottom:0.5em;">❓ About & Help</h2>
-    
-    <b>How to Use:</b>
-    <ul>
-      <li><b>Single Review:</b> Type or paste a customer review into the input box, enter one or more aspects (separated by commas), and click <b>Classify Now</b>.</li>
-      <li><b>Batch Reviews:</b> Upload a CSV file containing a <code>review</code> column, or paste multiple reviews (one per line) in the provided textbox. Enter your aspects, then click <b>Classify Batch</b>.</li>
-      <li>See instant results for sentiment (positive, neutral, negative), a 1-5 star conversion, and aspect alignment. Batch mode includes charts and downloadable CSV.</li>
-    </ul>
-    <b>What do "Sentiment" and "Rating" mean?</b>
-    <ul>
-      <li><b>Sentiment:</b> The AI classifies the overall tone of the review as positive 😊, neutral 😐, or negative 😞.</li>
-      <li><b>Star Rating:</b> Sentiment confidence is mapped to 1-5 stars, offering a familiar, quick-glance metric.</li>
-      <li><b>Aspects:</b> For each chosen aspect (like "service" or "price"), the AI gives a relevance score showing how much that topic drives the review's sentiment.</li>
-    </ul>
-    <b>How are results generated?</b>
-    <ul>
-      <li>AI-powered zero-shot classification ("facebook/bart-large-mnli") is used for all sentiment and aspect detection.</li>
-      <li>No templates: the model uses deep language understanding for high accuracy across topics.</li>
-      <li>Supports both short and long reviews, and any custom aspects you define.</li>
-    </ul>
-    <hr style="border:1px solid #282a39; margin:2em 0 1em 0;">
-    <div style="background:#252d40; border-radius:12px; padding:1.7em 1.2em 1em 1.2em; margin-bottom:2em; box-shadow: 0 1.5px 12px #1b263433">
-      <span class="suggested-aspects-title">Suggested Aspects (by Industry):</span>
-      <div class="suggested-aspect-grid">
-        <div class="suggested-aspect-group">
-            <div class="suggested-group-title">🍽️ Restaurant</div>
-            <div class="suggested-chips-row">
-                <span class="suggested-chip">food</span><span class="suggested-chip">service</span><span class="suggested-chip">ambience</span><span class="suggested-chip">price</span><span class="suggested-chip">delivery</span><span class="suggested-chip">staff</span><span class="suggested-chip">product quality</span>
-            </div>
-        </div>
-        <div class="suggested-aspect-group">
-            <div class="suggested-group-title">💻 Electronics</div>
-            <div class="suggested-chips-row">
-                <span class="suggested-chip">battery</span><span class="suggested-chip">display</span><span class="suggested-chip">camera</span><span class="suggested-chip">performance</span><span class="suggested-chip">durability</span><span class="suggested-chip">shipping</span><span class="suggested-chip">support</span>
-            </div>
-        </div>
-        <div class="suggested-aspect-group">
-            <div class="suggested-group-title">👗 Fashion</div>
-            <div class="suggested-chips-row">
-                <span class="suggested-chip">fit</span><span class="suggested-chip">material</span><span class="suggested-chip">style</span><span class="suggested-chip">comfort</span><span class="suggested-chip">design</span><span class="suggested-chip">price</span>
-            </div>
-        </div>
-        <div class="suggested-aspect-group">
-            <div class="suggested-group-title">🛒 Supermarket</div>
-            <div class="suggested-chips-row">
-                <span class="suggested-chip">freshness</span><span class="suggested-chip">variety</span><span class="suggested-chip">checkout</span><span class="suggested-chip">customer service</span><span class="suggested-chip">packaging</span><span class="suggested-chip">speed</span>
-            </div>
-        </div>
-        <div class="suggested-aspect-group">
-            <div class="suggested-group-title">📚 Books</div>
-            <div class="suggested-chips-row">
-                <span class="suggested-chip">plot</span><span class="suggested-chip">characters</span><span class="suggested-chip">writing</span><span class="suggested-chip">pacing</span><span class="suggested-chip">ending</span><span class="suggested-chip">value</span>
-            </div>
-        </div>
-        <div class="suggested-aspect-group">
-            <div class="suggested-group-title">🏨 Hotel</div>
-            <div class="suggested-chips-row">
-                <span class="suggested-chip">cleanliness</span><span class="suggested-chip">location</span><span class="suggested-chip">amenities</span><span class="suggested-chip">room</span><span class="suggested-chip">wifi</span><span class="suggested-chip">maintenance</span>
-            </div>
-        </div>
-      </div>
-    </div>
-    <b>Questions?</b>
-    <ul>
-      <li>CSV uploads require a column titled exactly <b>review</b>.</li>
-      <li>Choose aspects ("service", "value", etc.) that fit the context of your feedback.</li>
-      <li>All processing is instant and secure—no text is sent to external servers or stored.</li>
-      <li>For further help or feedback, please contact the developer.</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-st.markdown(
-    "<hr><div style='color:#8aa2ff;font-size:1em;'>Model: facebook/bart-large-mnli (Meta, Hugging Face)</div>",
-    unsafe_allow_html=True
-)
-
+# ===== TAB 2: BATCH REVIEWS =====
 with tab2:
-    if 'uploaded_filename' not in st.session_state:
-        st.session_state['uploaded_filename'] = ''
+    st.markdown("### 📊 Batch Review Analysis")
+    
     if 'batch_aspects_select' not in st.session_state:
         st.session_state['batch_aspects_select'] = []
-    st.markdown(
-        "<div style='background: #22304a; border-radius: 11px; padding:0.73em 1.22em 0.85em 1.22em; color:#e3f1fe; font-size:1.07em;margin-bottom:1.03em;'>"
-        "<b>Instructions:</b> Upload a UTF-8 CSV file with a column <span style='background:#222c41;color:#53ffb2;border-radius:5px;padding:1.5px 5px;font-size:1em;'>review</span> or paste reviews (one per line) below.<br>"
-        "Enter aspects and press 'Classify Batch' to view results and charts.</div>",
-        unsafe_allow_html=True
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown("**Upload CSV** (with `review` column):")
+        uploaded_file = st.file_uploader("Choose CSV", type="csv", key="batch_file")
+    
+    with col2:
+        st.markdown("**Or paste reviews** (one per line):")
+        pasted_text = st.text_area("Paste reviews:", height=120, label_visibility='collapsed', key="batch_manual")
+    
+    st.markdown("**Select Aspects:**")
+    st.multiselect(
+        "Aspects to analyze:",
+        options=get_all_aspects(),
+        default=st.session_state.get('batch_aspects_select', []),
+        key='batch_aspects_select',
+        label_visibility='collapsed'
     )
-    with st.expander("Batch Input Options"):
-        col1, col2 = st.columns([1, 1])
-        uploaded = None
-        with col1:
-            st.markdown('<span style="color:#f9d66e;font-size:1.08em;font-weight:700;display:block;margin-bottom:0.04em;">🗂️ CSV Upload</span>', unsafe_allow_html=True)
-            uploaded = st.file_uploader("", type=["csv"], key="batch_csv", help="Upload your .csv file with review column.")
-        with col2:
-            st.markdown('<span style="color:#8eaffc;font-size:1.05em;font-weight:700;display:block;margin-bottom:0.04em;">📋 Paste reviews (one per line)</span>', unsafe_allow_html=True)
-            manual_text = st.text_area("", height=120, key="batch_manual_text", label_visibility="collapsed")
-
-    st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.01em;">🔎 Aspects/Categories for batch</span>', unsafe_allow_html=True)
-    st.multiselect("Choose aspects for batch (searchable)", options=_all_aspects(), default=st.session_state.get('batch_aspects_select', []), key='batch_aspects_select', label_visibility='collapsed')
-    reviews = []
-    uploaded_filename = ''
-    if uploaded is not None:
-        if uploaded != st.session_state.get("uploaded_filename"):
-            st.session_state["uploaded_filename"] = uploaded
-            uploaded_filename = uploaded.name
+    
+    if st.button("⚙️ Classify Batch", type="primary", key="batch_btn"):
+        reviews_list = []
+        
+        if uploaded_file:
             try:
-                dataframe = pd.read_csv(uploaded, encoding="utf-8")
-            except UnicodeDecodeError:
-                dataframe = pd.read_csv(uploaded, encoding="latin1")
-            if 'review' in dataframe.columns:
-                rec_count = len(dataframe['review'].dropna())
-                st.info(f"✅ File uploaded: '{uploaded_filename}', {rec_count} reviews detected.")
-                reviews = dataframe['review'].dropna().astype(str).tolist()
-            else:
-                st.warning("⚠️ No column named 'review' found in uploaded CSV.")
+                df = pd.read_csv(uploaded_file)
+                if 'review' not in df.columns:
+                    st.error("CSV must have a 'review' column")
+                else:
+                    reviews_list = df['review'].dropna().astype(str).tolist()
+            except Exception as e:
+                st.error(f"Error reading CSV: {e}")
+        elif pasted_text:
+            reviews_list = [r.strip() for r in pasted_text.split('\n') if r.strip()]
+        
+        if not reviews_list:
+            st.error("No reviews found. Please upload CSV or paste reviews.")
+        elif not st.session_state.get('batch_aspects_select'):
+            st.error("Please select at least one aspect.")
         else:
-            try:
-                dataframe = pd.read_csv(uploaded, encoding="utf-8")
-            except UnicodeDecodeError:
-                dataframe = pd.read_csv(uploaded, encoding="latin1")
-            if 'review' in dataframe.columns:
-                reviews = dataframe['review'].dropna().astype(str).tolist()
-    elif manual_text and manual_text.strip():
-        reviews = [line.strip() for line in manual_text.split("\n") if line.strip()]
-
-    if reviews:
-        st.markdown(f"<span style='font-size:1.07em;color:#8eaffc;font-weight:700;'>Loaded {len(reviews)} reviews</span>", unsafe_allow_html=True)
-        st.write("Sample Reviews", pd.DataFrame({"review": reviews[:5]}))
-
-    st.markdown('<div style="display:flex;justify-content:center;margin-top:0.6em;margin-bottom:0.6em;">', unsafe_allow_html=True)
-    if st.button("🚦 Classify Batch", key="classify_batch_btn2"):
-        if not st.session_state.get('batch_aspects_select'):
-            st.error("Please enter at least one aspect.")
-        elif not reviews:
-            st.error("Please upload CSV or enter reviews.")
-        else:
-            with st.spinner("🔄 Classifying batch reviews… Please wait."):
-                results = []
-                aspect_list = st.session_state.get('batch_aspects_select', [])
+            with st.spinner("Classifying batch... This may take a minute."):
                 try:
-                    # chunked classification with visual progress
-                    p1 = st.progress(0.0)
-                    class _Prog:
-                        def __init__(self, bar):
-                            self.bar = bar
-                        def update(self, v):
-                            try:
-                                self.bar.progress(v)
-                            except Exception:
-                                pass
-                    sentiment_batch = classify_batch(reviews, SENTIMENT_LABELS, get_classifier, chunk_size=32, progress=_Prog(p1))
-                    p2 = st.progress(0.0)
-                    aspects_batch = classify_batch(reviews, aspect_list, get_classifier, chunk_size=16, progress=_Prog(p2))
+                    # Sentiment analysis
+                    progress_bar = st.progress(0, text="Analyzing sentiment...")
+                    sentiment_results = classify_batch(
+                        reviews_list,
+                        SENTIMENT_LABELS,
+                        get_classifier,
+                        chunk_size=32
+                    )
+                    progress_bar.empty()
+                    
+                    # Aspect analysis
+                    progress_bar = st.progress(0, text="Analyzing aspects...")
+                    aspect_results = classify_batch(
+                        reviews_list,
+                        st.session_state['batch_aspects_select'],
+                        get_classifier,
+                        chunk_size=32
+                    )
+                    progress_bar.empty()
+                    
+                    # Build results
+                    batch_results = []
+                    for i, review in enumerate(reviews_list):
+                        sent = sentiment_results[i] if i < len(sentiment_results) else {}
+                        aspects = aspect_results[i] if i < len(aspect_results) else {}
+                        
+                        sentiment_label = sent.get('labels', [None])[0]
+                        sentiment_score = sent.get('scores', [0])[0] if sent.get('scores') else 0
+                        stars = sentiment_to_stars(sentiment_label, sentiment_score) if sentiment_label else 0
+                        
+                        row = {
+                            'Review': review[:80] + '...' if len(review) > 80 else review,
+                            'Sentiment': sentiment_label or 'N/A',
+                            'Confidence': f"{sentiment_score:.1%}",
+                            'Stars': stars
+                        }
+                        
+                        if aspects.get('labels'):
+                            for j, (label, score) in enumerate(zip(aspects['labels'][:2], aspects['scores'][:2])):
+                                row[f'Aspect {j+1}'] = f"{label} ({score:.1%})"
+                        
+                        batch_results.append(row)
+                    
+                    result_df = pd.DataFrame(batch_results)
+                    
+                    st.success("✅ Batch complete!")
+                    st.markdown("---")
+                    st.subheader(f"📈 Results ({len(batch_results)} reviews)")
+                    
+                    # Charts
+                    col_pie, col_bar = st.columns([1, 1])
+                    
+                    sentiment_counts = result_df['Sentiment'].value_counts()
+                    with col_pie:
+                        fig_pie = px.pie(
+                            values=sentiment_counts.values,
+                            names=sentiment_counts.index,
+                            title="Sentiment Distribution"
+                        )
+                        st.plotly_chart(fig_pie, use_container_width=True)
+                    
+                    star_counts = result_df['Stars'].value_counts().sort_index()
+                    with col_bar:
+                        fig_bar = px.bar(
+                            x=star_counts.index,
+                            y=star_counts.values,
+                            labels={'x': 'Rating', 'y': 'Count'},
+                            title="Star Rating Distribution",
+                            color=star_counts.index,
+                            color_continuous_scale='Blues'
+                        )
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    
+                    st.write("**Detailed Results:**")
+                    st.dataframe(result_df, use_container_width=True, hide_index=True)
+                    
+                    # Download
+                    csv_data = result_df.to_csv(index=False)
+                    st.download_button(
+                        label="⬇️ Download as CSV",
+                        data=csv_data,
+                        file_name="batch_results.csv",
+                        mime="text/csv"
+                    )
+                    
                 except Exception as e:
-                    st.error(f"Model inference failed during batch processing: {e}")
-                    sentiment_batch = []
-                    aspects_batch = []
+                    st.error(f"Batch processing failed: {e}")
 
-                for i, r in enumerate(reviews):
-                    if i < len(sentiment_batch):
-                        sres = sentiment_batch[i]
-                    else:
-                        sres = {"labels": ["neutral"], "scores": [0.0]}
-                    if i < len(aspects_batch):
-                        ares = aspects_batch[i]
-                    else:
-                        ares = {"labels": [""], "scores": [0.0]}
-                    stars = sentiment_to_stars(sres['labels'][0], sres['scores'][0])
-                    results.append({
-                        "review": r,
-                        "sentiment": sres["labels"][0],
-                        "sentiment_score": sres["scores"][0],
-                        "star_rating": stars,
-                        "top_aspect": ares["labels"][0],
-                        "aspect_score": ares["scores"][0]
-                    })
-            st.success("✅ Batch classification completed!")
-            results_df = pd.DataFrame(results)
-            ordered = pd.CategoricalDtype([1,2,3,4,5], ordered=True)
-            results_df['star_rating'] = results_df['star_rating'].astype(ordered)
-            st.markdown(f'''<div class="output-card"><span style="font-size:1.14em;color:#9bc8ff;font-weight:900;">Batch Classification Results:</span></div>''', unsafe_allow_html=True)
-            st.dataframe(results_df)
-            st.markdown('<span style="font-size:1.07em;font-weight:800;color:#82b7ff;margin-top:0.5em;">Rating Distribution:</span>', unsafe_allow_html=True)
-            pie_colors = ["#E05555", "#FAAA28", "#4BA3FE", "#789A37", "#60CAAE"]
-            fig1 = px.pie(results_df, names="star_rating", title="", color="star_rating",
-                category_orders={"star_rating":[1,2,3,4,5]},
-                color_discrete_sequence=pie_colors)
-            fig1.update_traces(textfont_color='white', marker=dict(line=dict(color='#232f3c', width=2)))
-            fig1.update_layout(
-                paper_bgcolor="#232a3b",
-                plot_bgcolor="#232a3b",
-                font_color="#e6eafe",
-                margin=dict(l=8, r=8, t=8, b=8),
-                legend=dict(orientation="v", x=1, y=0.7),
-            )
-            st.plotly_chart(fig1, use_container_width=True)
-            st.markdown('<span style="font-size:1.07em;font-weight:800;color:#82b7ff;margin-top:0.5em;">Sentiment Analysis:</span>', unsafe_allow_html=True)
-            bar_colors = ['#50e396','#F9CE1D','#f97a77']
-            fig2 = px.bar(results_df, x="sentiment", title="", color="sentiment",
-                color_discrete_map={"positive":bar_colors[0],"neutral":bar_colors[1],"negative":bar_colors[2]}
-            )
-            fig2.update_layout(
-                paper_bgcolor="#232a3b",
-                plot_bgcolor="#232a3b",
-                font_color="#e6eafe",
-                margin=dict(l=8, r=8, t=8, b=8))
-            st.plotly_chart(fig2, use_container_width=True)
-            csv_result = results_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "⬇️ Download Results as CSV",
-                data=csv_result,
-                file_name="classification_results.csv",
-                mime="text/csv"
-            )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Re-enter About tab to render interactive suggested-aspect buttons
+# ===== TAB 3: ABOUT & HELP =====
 with tab3:
-    st.markdown('**Suggested Aspects (click to add to inputs)**')
-    for group, chips in GROUPED_ASPECTS.items():
-        st.markdown(f"**{group}**")
-        # render chips in rows of up to 6
-        for i in range(0, len(chips), 6):
-            row = chips[i:i+6]
-            cols = st.columns(len(row))
-            for j, chip in enumerate(row):
-                safe_key = f"chip_{group}_{chip}".replace(' ', '_').replace('/', '_')
-                cols[j].button(chip, key=safe_key, on_click=append_to_both, args=(chip,))
+    st.markdown("### ℹ️ About PulseLens")
+    
+    st.markdown("""
+    **PulseLens** analyzes customer feedback using AI-powered zero-shot classification.
+    
+    #### How It Works
+    - Uses Hugging Face transformer model for sentiment & aspect classification
+    - **Sentiment:** Classifies reviews as positive/neutral/negative
+    - **Aspects:** Scores how strongly specific topics (e.g., "service", "price") appear in reviews
+    - **Star Rating:** Maps sentiment + confidence to 1-5 stars
+    
+    #### Features
+    ✅ Single review analysis with instant results  
+    ✅ Batch CSV processing (100+ reviews at once)  
+    ✅ Industry presets (Restaurant, Electronics, Fashion, etc.)  
+    ✅ Custom aspect selection  
+    ✅ Export results as CSV  
+    
+    #### Star Rating Logic
+    | Sentiment | Confidence | Rating |
+    |-----------|-----------|--------|
+    | Positive | ≥90% | ⭐⭐⭐⭐⭐ |
+    | Positive | 75-90% | ⭐⭐⭐⭐ |
+    | Positive | <75% | ⭐⭐⭐ |
+    | Neutral | Any | ⭐⭐⭐ |
+    | Negative | 60-85% | ⭐⭐ |
+    | Negative | ≥85% | ⭐ |
+    
+    #### Industry Aspect Presets
+    """)
+    
+    for industry, aspects in GROUPED_ASPECTS.items():
+        st.markdown(f"**{industry}**  {', '.join(aspects)}")
+    
+    st.markdown("""
+    #### FAQ
+    
+    **Q: How fast is analysis?**  
+    A: First run downloads model (~2 min), then <1s per review.
+    
+    **Q: Can I use custom aspects?**  
+    A: Yes, just type them. No retraining needed.
+    
+    **Q: Is data stored?**  
+    A: No, session-only. Results disappear when you close the page.
+    
+    **Q: CSV requirements?**  
+    A: Must have column named `review`.
+    """)
+
+st.markdown('</div>', unsafe_allow_html=True)
