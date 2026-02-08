@@ -154,10 +154,6 @@ with tab1:
     # Wrap single-review inputs in a form to allow batching of inputs before inference
     with st.form(key='single_review_form'):
         text = st.text_area("", height=120, key="review_text", label_visibility="collapsed")
-        st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
-        st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
-        st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
-        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('<span style="color:#85e9ff;font-size:1.02em;font-weight:700;display:block;margin-bottom:0.02em;">🔎 Industry & Aspects</span>', unsafe_allow_html=True)
         col_ind, col_as = st.columns([1,2])
         with col_ind:
@@ -166,6 +162,12 @@ with tab1:
         with col_as:
             st.multiselect("Choose aspects (searchable)", options=_all_aspects(), default=st.session_state.get('aspects_select', []), key='aspects_select', label_visibility='collapsed')
         submit = st.form_submit_button(label="🚦 Classify Now")
+    
+    # Buttons outside the form (Streamlit 1.37+ requires callbacks to be outside forms)
+    st.markdown('<div style="display: flex; justify-content: center; margin-top: 0.13em; margin-bottom: 0.13em;">', unsafe_allow_html=True)
+    st.button("✨ Generate Sample", on_click=set_sample, key="gen_sample_btn")
+    st.button("🧹 Clear", on_click=clear_text, key="clear_btn")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # If industry was chosen in the form, populate aspects and optionally sample text
     if st.session_state.get('industry_select') and st.session_state.get('industry_select') != "-- Select industry --":
